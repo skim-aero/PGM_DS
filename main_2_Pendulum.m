@@ -1,4 +1,4 @@
-%% PGM Filter from "Particle Gaussian Mixtures Filters-1"
+%% Particle Gaussian Mixture Filter with DBSCAN (and with UT)"
 % Sukkeun Kim (Sukkeun.Kim@cranfield.ac.uk)
 
 clc; clear all; close all;
@@ -8,10 +8,10 @@ warning
 figure_view = 1;
 animation_view = 0;         % 1: show pdf animation / 0: no pdf animation
 recordVid_view = 0;         % 1: record pdf animation / 0: no record
-comparison_PGM1_DU = 1;     % 1: compare with PGM1_DU  / 0: no comparison
-comparison_PGM1_DS = 1;     % 1: compare with PGM1_DS  / 0: no comparison
-comparison_PGM1_UT = 1;     % 1: compare with PGM1_UT  / 0: no comparison
-comparison_PGM1 = 1;        % 1: compare with PGM1  / 0: no comparison
+comparison_PGM_DU = 1;      % 1: compare with PGM_DU  / 0: no comparison
+comparison_PGM_DS = 1;      % 1: compare with PGM_DS  / 0: no comparison
+comparison_PGM_UT = 1;      % 1: compare with PGM_UT  / 0: no comparison
+comparison_PGM = 1;         % 1: compare with PGM  / 0: no comparison
 comparison_AKKF = 1;        % 1: compare with AKKF  / 0: no comparison
 comparison_EnKF = 0;        % 1: compare with EnKF / 0: no comparison
 comparison_EKF = 0;         % 1: compare with EKF / 0: no comparison
@@ -24,12 +24,7 @@ numEnsembles = numParticles;
 numMixturetemp = 10;
 numMC = 1;
 
-rng(5); %5% 42
-% rng(12); % PGM-UT shows issue in this random seed
-% The problem was the small P which has happened due to the small number of
-% particle in the cluster (only two were there). Currently it is modified
-% with random P but increasing the number of particles could be another
-% solution. 
+rng(5);
 
 %% Define a Scenario
 % Time
@@ -46,17 +41,15 @@ nm = 1; % dimension of the measurement
 
 L = 3;
 g = 9.81;
-Q = 50; %10 originally used 10
-R = 0.02; %0.02
+Q = 10;
+R = 0.02; % 0.02
 Rmat = R*eye(nm);
 merging_thres = chi2inv(0.995,n); % threshold for merging mixtures
 
 trueinitial = [0.4*pi;0];
 P0 = 0.4*eye(n); % 0.4*eye(n)
 
-% initial = [0;0]; % initial guess, this will produce the same result as before
-initial = [0;0.2];
-initial = initial+sqrt(P0)*randn(n,1);
+initial = [0;0]; % initial guess
 
 % System/measurement equations
 funsys = @(x,w) [wrapToPi(mod(x(1,:)+dt*x(2,:)+dt^2*(-g+w)*sin(x(1,:))/L,2*pi));
@@ -151,8 +144,8 @@ for mc = 1:numMC
         ylabel('|Estimation error| (rad)')
     end
 
-    %% PGM1-DU
-    if comparison_PGM1_DU
+    %% PGM-DU
+    if comparison_PGM_DU
     %% Filter Parameters
     numMixture_max = n+1; % number of Gaussian mixtures
     minpts = n+1; % Minimum number of neighbors for a core point n + 1
@@ -201,7 +194,7 @@ for mc = 1:numMC
     % Clustering
     [~,particle_mean,particle_var,~,...
             cmean,ccovar,cweight,~,~] = ...
-               PGM1_clustering(1,n,numParticles,...
+               PGM_DS_clustering(1,n,numParticles,...
                               particle_state,particle_mean,particle_var,...
                               epsilon,minpts,numMixture_max,1,1);
 
@@ -237,21 +230,21 @@ for mc = 1:numMC
         %% Clustering
         [particle_clust,particle_mean,particle_var,numMixture,...
                     ~,~,cweight,likelih,idx] = ...
-                       PGM1_clustering(i,n,numParticles,...
+                       PGM_DS_clustering(i,n,numParticles,...
                                       particle_state,particle_mean,particle_var,...
                                       epsilon,minpts,numMixture_max,1,0);
 
         %% Merging
         [~,particle_clust,particle_mean,particle_var,...
             numMixture,cweight,idx] = ...
-                       PGM1_merging(i,n,numMixture,cweight,idx,merging_thres,...
+                       PGM_DS_merging(i,n,numMixture,cweight,idx,merging_thres,...
                                     particle_clust,particle_state,...
                                     particle_mean,particle_var);
 
         %% Update
         [particle_state,estState,temp_particle_var,...
          cmean,ccovar,cweight] = ...
-                       PGM1_update(i,n,nm,numStep,numParticles,...
+                       PGM_DS_update(i,n,nm,numStep,numParticles,...
                                    numMixture,numMixture_max,...
                                    1,cweight,idx,meas,likelih,R,...
                                    particle_state,particle_clust,...
@@ -303,15 +296,15 @@ for mc = 1:numMC
 
     if figure_view
         figure(fig2); 
-        plot(t,estState(1,:),'r','DisplayName', 'PGM1-DU')
+        plot(t,estState(1,:),'r','DisplayName', 'PGM-DU')
         figure(fig3);
-        plot(t,estState(2,:),'r','DisplayName', 'PGM1-DU')
+        plot(t,estState(2,:),'r','DisplayName', 'PGM-DU')
         figure(fig4);
-        plot(t,temperror,'r','DisplayName', 'PGM1-DU')
+        plot(t,temperror,'r','DisplayName', 'PGM-DU')
     end
 
     if recordVid_view
-        writeObj = VideoWriter('PGM1-DU','MPEG-4');
+        writeObj = VideoWriter('PGM-DU','MPEG-4');
         writeObj.FrameRate = framerate;
         open(writeObj);
         writeVideo(writeObj,frame);
@@ -319,8 +312,8 @@ for mc = 1:numMC
     end
     end
 
-    %% PGM1-DS
-    if comparison_PGM1_DS
+    %% PGM-DS
+    if comparison_PGM_DS
     %% Filter Parameters
     numMixture_max = n+1; % number of Gaussian mixtures
     minpts = n+1; % Minimum number of neighbors for a core point n + 1
@@ -351,7 +344,7 @@ for mc = 1:numMC
     % Clustering
     [~,particle_mean,particle_var,~,...
             cmean,ccovar,cweight,~,~] = ...
-               PGM1_clustering(1,n,numParticles,...
+               PGM_DS_clustering(1,n,numParticles,...
                               particle_state,particle_mean,particle_var,...
                               epsilon,minpts,numMixture_max,1,1);
 
@@ -387,14 +380,14 @@ for mc = 1:numMC
         %% Clustering
         [particle_clust,particle_mean,particle_var,numMixture,...
                     ~,~,cweight,likelih,idx] = ...
-                       PGM1_clustering(i,n,numParticles,...
+                       PGM_DS_clustering(i,n,numParticles,...
                                       particle_state,particle_mean,particle_var,...
                                       epsilon,minpts,numMixture_max,1,0);
 
         %% Merging
         [~,particle_clust,particle_mean,particle_var,...
             numMixture,cweight,idx] = ...
-                       PGM1_merging(i,n,numMixture,cweight,idx,merging_thres,...
+                       PGM_DS_merging(i,n,numMixture,cweight,idx,merging_thres,...
                                     particle_clust,particle_state,...
                                     particle_mean,particle_var);
 
@@ -405,7 +398,7 @@ for mc = 1:numMC
 
         [particle_state,estState,temp_particle_var,...
          cmean,ccovar,cweight] = ...
-                       PGM1_update(i,n,nm,numStep,numParticles,...
+                       PGM_DS_update(i,n,nm,numStep,numParticles,...
                                    numMixture,numMixture_max,...
                                    1,cweight,idx,meas,likelih,R,...
                                    particle_state,particle_clust,...
@@ -456,15 +449,15 @@ for mc = 1:numMC
 
     if figure_view
         figure(fig2); 
-        plot(t,estState(1,:),'g','DisplayName', 'PGM1-DS')
+        plot(t,estState(1,:),'g','DisplayName', 'PGM-DS')
         figure(fig3); 
-        plot(t,estState(2,:),'g','DisplayName', 'PGM1-DS')
+        plot(t,estState(2,:),'g','DisplayName', 'PGM-DS')
         figure(fig4);
-        plot(t,temperror,'g','DisplayName', 'PGM1-DS')
+        plot(t,temperror,'g','DisplayName', 'PGM-DS')
     end
 
     if recordVid_view
-        writeObj = VideoWriter('PGM1-DS','MPEG-4');
+        writeObj = VideoWriter('PGM-DS','MPEG-4');
         writeObj.FrameRate = framerate;
         open(writeObj);
         writeVideo(writeObj,frame);
@@ -472,8 +465,8 @@ for mc = 1:numMC
     end
     end
 
-    %% PGM1-UT
-    if comparison_PGM1_UT
+    %% PGM-UT
+    if comparison_PGM_UT
     %% Filter Parameters
     numMixture_max = 2; % number of Gaussian mixtures
 
@@ -519,7 +512,7 @@ for mc = 1:numMC
     % Clustering
     [~,particle_mean,particle_var,~,...
                 cmean,ccovar,cweight,~,~] = ...
-                   PGM1_clustering(1,n,numParticles,...
+                   PGM_DS_clustering(1,n,numParticles,...
                                   particle_state,particle_mean,particle_var,...
                                   0,0,numMixture_max,0,1);
 
@@ -555,21 +548,21 @@ for mc = 1:numMC
         %% Clustering
         [particle_clust,particle_mean,particle_var,numMixture,...
                     ~,~,cweight,likelih,idx] = ...
-                       PGM1_clustering(i,n,numParticles,...
+                       PGM_DS_clustering(i,n,numParticles,...
                                       particle_state,particle_mean,particle_var,...
                                       0,0,numMixture_max,0,0);
 
         %% Merging
         [~,particle_clust,particle_mean,particle_var,...
             numMixture,cweight,idx] = ...
-                       PGM1_merging(i,n,numMixture,cweight,idx,merging_thres,...
+                       PGM_DS_merging(i,n,numMixture,cweight,idx,merging_thres,...
                                     particle_clust,particle_state,...
                                     particle_mean,particle_var);
 
         %% Update
         [particle_state,estState,temp_particle_var,...
          cmean,ccovar,cweight] = ...
-                       PGM1_update(i,n,nm,numStep,numParticles,...
+                       PGM_DS_update(i,n,nm,numStep,numParticles,...
                                    numMixture,numMixture_max,...
                                    1,cweight,idx,meas,likelih,R,...
                                    particle_state,particle_clust,...
@@ -621,15 +614,15 @@ for mc = 1:numMC
 
     if figure_view
         figure(fig2); 
-        plot(t,estState(1,:),'Color','#0072BD','DisplayName', 'PGM1-UT')
+        plot(t,estState(1,:),'Color','#0072BD','DisplayName', 'PGM-UT')
         figure(fig3);
-        plot(t,estState(2,:),'Color','#0072BD','DisplayName', 'PGM1-UT')
+        plot(t,estState(2,:),'Color','#0072BD','DisplayName', 'PGM-UT')
         figure(fig4);
-        plot(t,temperror,'Color','#0072BD','DisplayName', 'PGM1-UT')
+        plot(t,temperror,'Color','#0072BD','DisplayName', 'PGM-UT')
     end
 
     if recordVid_view
-        writeObj = VideoWriter('PGM1-UT','MPEG-4');
+        writeObj = VideoWriter('PGM-UT','MPEG-4');
         writeObj.FrameRate = framerate;
         open(writeObj);
         writeVideo(writeObj,frame);
@@ -637,8 +630,8 @@ for mc = 1:numMC
     end
     end
   
-    %% PGM1
-    if comparison_PGM1
+    %% PGM
+    if comparison_PGM
     %% Filter Parameters
     numMixture_max = 2; % number of Gaussian mixtures
     
@@ -667,7 +660,7 @@ for mc = 1:numMC
     % Clustering
     [~,particle_mean,particle_var,~,...
                 cmean,ccovar,cweight,~,~] = ...
-                   PGM1_clustering(1,n,numParticles,...
+                   PGM_DS_clustering(1,n,numParticles,...
                                   particle_state,particle_mean,particle_var,...
                                   0,0,numMixture_max,0,1);
 
@@ -703,14 +696,14 @@ for mc = 1:numMC
         %% Clustering
         [particle_clust,particle_mean,particle_var,numMixture,...
                     ~,~,cweight,likelih,idx] = ...
-                       PGM1_clustering(i,n,numParticles,...
+                       PGM_DS_clustering(i,n,numParticles,...
                                       particle_state,particle_mean,particle_var,...
                                       0,0,numMixture_max,0,0);
 
         %% Merging
         [~,particle_clust,particle_mean,particle_var,...
             numMixture,cweight,idx] = ...
-                       PGM1_merging(i,n,numMixture,cweight,idx,merging_thres,...
+                       PGM_DS_merging(i,n,numMixture,cweight,idx,merging_thres,...
                                     particle_clust,particle_state,...
                                     particle_mean,particle_var);
 
@@ -721,7 +714,7 @@ for mc = 1:numMC
 
         [particle_state,estState,temp_particle_var,...
          cmean,ccovar,cweight] = ...
-                       PGM1_update(i,n,nm,numStep,numParticles,...
+                       PGM_DS_update(i,n,nm,numStep,numParticles,...
                                    numMixture,numMixture_max,...
                                    1,cweight,idx,meas,likelih,R,...
                                    particle_state,particle_clust,...
@@ -773,15 +766,15 @@ for mc = 1:numMC
 
     if figure_view
         figure(fig2); 
-        plot(t,estState(1,:),'Color','#EDB120','DisplayName', 'PGM1')
+        plot(t,estState(1,:),'Color','#EDB120','DisplayName', 'PGM')
         figure(fig3);
-        plot(t,estState(2,:),'Color','#EDB120','DisplayName', 'PGM1')
+        plot(t,estState(2,:),'Color','#EDB120','DisplayName', 'PGM')
         figure(fig4);
-        plot(t,temperror,'Color','#EDB120','DisplayName', 'PGM1')
+        plot(t,temperror,'Color','#EDB120','DisplayName', 'PGM')
     end
     
     if recordVid_view
-        writeObj = VideoWriter('PGM1','MPEG-4');
+        writeObj = VideoWriter('PGM','MPEG-4');
         writeObj.FrameRate = framerate;
         open(writeObj);
         writeVideo(writeObj,frame);
@@ -1387,7 +1380,7 @@ end
 
 % Averaged RMSE
 for fil = 1:9
-    armse(fil) = sum(rmse(fil,:))/numStep;  % PGM1-UT/PGM1/UKF/PF
+    armse(fil) = sum(rmse(fil,:))/numStep;  % PGM-UT/PGM/UKF/PF
     cnttotal(fil) = sum(correctcnt(fil,:));
 end
 
@@ -1395,10 +1388,10 @@ divall = sum(divergecnt(:,:));
 
 % Plot
 figure; hold on; legend;
-plot(t,rmse(1,:),'r','DisplayName', 'PGM1-DU')
-plot(t,rmse(2,:),'g','DisplayName', 'PGM1-DS')
-plot(t,rmse(3,:),'Color','#0072BD','DisplayName', 'PGM1-UT')
-plot(t,rmse(4,:),'Color','#EDB120','DisplayName', 'PGM1')
+plot(t,rmse(1,:),'r','DisplayName', 'PGM-DU')
+plot(t,rmse(2,:),'g','DisplayName', 'PGM-DS')
+plot(t,rmse(3,:),'Color','#0072BD','DisplayName', 'PGM-UT')
+plot(t,rmse(4,:),'Color','#EDB120','DisplayName', 'PGM')
 plot(t,rmse(5,:),'m','DisplayName', 'AKKF')
 % plot(t,rmse(6,:),'c','DisplayName', 'EnKF')
 % plot(t,rmse(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
@@ -1424,10 +1417,10 @@ end
 
 % Plot Chisq
 figure; hold on; legend;
-plot(t,chinorm(1,:),'r','DisplayName', 'PGM1-DU')
-plot(t,chinorm(2,:),'g','DisplayName', 'PGM1-DS')
-plot(t,chinorm(3,:),'Color','#0072BD','DisplayName', 'PGM1-UT')
-plot(t,chinorm(4,:),'Color','#EDB120','DisplayName', 'PGM1')
+plot(t,chinorm(1,:),'r','DisplayName', 'PGM-DU')
+plot(t,chinorm(2,:),'g','DisplayName', 'PGM-DS')
+plot(t,chinorm(3,:),'Color','#0072BD','DisplayName', 'PGM-UT')
+plot(t,chinorm(4,:),'Color','#EDB120','DisplayName', 'PGM')
 plot(t,chinorm(5,:),'m','DisplayName', 'AKKF')
 % plot(t,chinorm(6,:),'c','DisplayName', 'EnKF')
 % plot(t,chinorm(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
@@ -1464,10 +1457,10 @@ end
 
 % Plot Chisq
 figure; hold on; legend;
-plot(t,chifrac(1,:),'r','DisplayName', 'PGM1-DU')
-plot(t,chifrac(2,:),'g','DisplayName', 'PGM1-DS')
-plot(t,chifrac(3,:),'Color','#0072BD','DisplayName', 'PGM1-UT')
-plot(t,chifrac(4,:),'Color','#EDB120','DisplayName', 'PGM1')
+plot(t,chifrac(1,:),'r','DisplayName', 'PGM-DU')
+plot(t,chifrac(2,:),'g','DisplayName', 'PGM-DS')
+plot(t,chifrac(3,:),'Color','#0072BD','DisplayName', 'PGM-UT')
+plot(t,chifrac(4,:),'Color','#EDB120','DisplayName', 'PGM')
 plot(t,chifrac(5,:),'m','DisplayName', 'AKKF')
 % plot(t,chifrac(6,:),'c','DisplayName', 'EnKF')
 % plot(t,chifrac(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
