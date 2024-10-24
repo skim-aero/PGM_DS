@@ -1,9 +1,9 @@
-
-# PGM-DS: Particle Gaussian Mixture (PGM) Filter with DBSCAN
+# PGM-DS: Particle Gaussian Mixture (PGM) Filters with DBSCAN
 
 ## 1. Software Introduction
 
- This is a particle Gaussian mixture (PGM) filter with DBSCAN:
+These are particle Gaussian mixture (PGM) filters with DBSCAN:
+There are two algorithms in this repository: PGM-DS and PGM-DU where DU utilised unscented transform (UT) in the updated step just as like as UKF.
 
 Detail of the algorithm can be found from following paper:
 
@@ -14,13 +14,14 @@ Detail of the algorithm can be found from following paper:
 
 ## 2. Running the Demo
 
-1. Just run with MATLAB
+Just run with MATLAB! :)
 
-## 3. Python example (nonlinear dynamics)
+## 3. Python Example (nonlinear dynamics)
 
-Only with PGM-DS and PGM-DU. The comparison with other filters and MC simulation are not considered in this code. All structure is the same as the Matlab code but just for the easy embedding for other environment.
+*Py_PGM_DS_filters_nonlinear.py*: Only with PGM-DS and PGM-DU. The comparison with other filters and MC simulation are not considered in this code. All structure is the same as the Matlab code but just for the easy embedding for other environment.
 
-## 3. Version Information
+## 4. Version Information
 
-* 4th Sep 2024 Beta 0.0 Version: First Commit
-* 23rd Oct 2024 Beta 0.1 Version: Simple Python example added
+* 4th Sep 2024 Beta 0.0: First commit
+* 23rd Oct 2024 Beta 0.1: Simple Python example added
+* 24th Oct 2024 Beta 0.2: Parameter modification
