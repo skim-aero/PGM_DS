@@ -25,3 +25,4 @@ Just run with MATLAB! :)
 * 4th Sep 2024 Beta 0.0: First commit
 * 23rd Oct 2024 Beta 0.1: Simple Python example added
 * 24th Oct 2024 Beta 0.2: Parameter modification
+* 6th Nov 2024 Beta 0.3: Minor function modification
