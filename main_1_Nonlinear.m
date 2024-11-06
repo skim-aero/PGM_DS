@@ -1,7 +1,9 @@
-%% Particle Gaussian Mixture Filter with DBSCAN (and with UT)"
+%% Particle Gaussian Mixture Filter with DBSCAN (and with UT)
 % Sukkeun Kim (Sukkeun.Kim@cranfield.ac.uk)
 
 clc; clear all; close all;
+addpath('functions')
+
 %% Simulation Settings
 figure_view = 1;
 comparison_PGM_DU = 1;      % 1: compare with PGM_DU  / 0: no comparison
