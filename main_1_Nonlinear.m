@@ -1,15 +1,15 @@
 %% Particle Gaussian Mixture Filter with DBSCAN (and with UT)
 % Sukkeun Kim (Sukkeun.Kim@cranfield.ac.uk)
 
-clc; clear all; close all;
+clc; clear; close all;
 addpath('functions')
 
 %% Simulation Settings
 figure_view = 1;
-comparison_PGM_DU = 1;      % 1: compare with PGM_DU  / 0: no comparison
 comparison_PGM_DS = 1;      % 1: compare with PGM_DS  / 0: no comparison
-comparison_PGM_UT = 1;      % 1: compare with PGM_UT  / 0: no comparison
-comparison_PGM = 1;         % 1: compare with PGM  / 0: no comparison
+comparison_PGM_DU = 1;      % 1: compare with PGM_DU  / 0: no comparison
+comparison_PGM1 = 1;        % 1: compare with PGM1  / 0: no comparison
+comparison_PGM1_UT = 1;     % 1: compare with PGM1_UT  / 0: no comparison
 comparison_AKKF = 1;        % 1: compare with AKKF  / 0: no comparison
 comparison_EnKF = 0;        % 1: compare with EnKF / 0: no comparison
 comparison_EKF = 0;         % 1: compare with EKF / 0: no comparison
@@ -123,6 +123,110 @@ for mc = 1:numMC
         ylabel('|Estimation error|')
     end
 
+    %% PGM-DS
+    if comparison_PGM_DS
+    %% Filter Parameters
+    numMixture_max = n+1; % number of Gaussian mixtures
+    minpts = n+1; % Minimum number of neighbors for a core point n + 1
+    epsilon = 10; % Distance to determine if a point is a core point 3
+    
+    %% Initialise
+    particle_state = zeros(n,numParticles,numStep);
+    particle_mean = zeros(n,numMixture_max,numStep);
+    particle_var = zeros(n,n,numMixture_max,numStep);
+    particle_meas = zeros(nm,numParticles,numStep);
+
+    estState = zeros(n,numStep);
+    temp_particle_var = zeros(n,n,numStep);
+
+    %% First time step
+    particle_state(:,:,1) = initial+sqrt(P0)*randn(n,numParticles);
+
+    for p = 1:numParticles
+        particle_meas(:,p,1) = funmeas(particle_state(:,p,1),0);
+    end 
+
+    estState(:,1) = mean(particle_state(:,:,1),2);
+    temp_particle_var(:,:,1) = P0;
+
+    error(1,:,1) = abs(estState(:,1)-trueState(:,1));
+    chisq(1,1) = error(1,:,1)*(temp_particle_var(:,:,1)\error(1,:,1)');
+
+    % Clustering
+    [~,particle_mean,particle_var,~,...
+            cmean,ccovar,cweight,~,~] = ...
+               PGM_DS_clustering(1,n,numParticles,...
+                              particle_state,particle_mean,particle_var,...
+                              epsilon,minpts,numMixture_max,1,1);
+
+    for k = length(cweight)
+        cmeanmc(1,:,k,1) = cmean(:,k);
+        ccovarmc(1,:,:,k,1) = ccovar(:,:,k);
+        cweightmc(1,k,1) = cweight(k,1);
+    end
+
+    %% Main loop
+    tStart1 = tic; 
+
+    for i = 2:numStep
+        %% Prediction
+        for p = 1:numParticles
+            particle_state(:,p,i) = funsys(particle_state(:,p,i-1),sqrt(Q)*randn(1),i-1);
+        end
+    
+        %% Clustering
+        [particle_clust,particle_mean,particle_var,numMixture,...
+                    ~,~,cweight,likelih,idx] = ...
+                       PGM_DS_clustering(i,n,numParticles,...
+                                      particle_state,particle_mean,particle_var,...
+                                      epsilon,minpts,numMixture_max,1,0);
+
+        %% Merging
+        [~,particle_clust,particle_mean,particle_var,...
+            numMixture,cweight,idx] = ...
+                       PGM_DS_merging(i,n,numMixture,cweight,idx,merging_thres,...
+                                    particle_clust,particle_state,...
+                                    particle_mean,particle_var);
+
+        %%  Update
+        for p = 1:numParticles
+            particle_meas(:,p,i) = funmeas(particle_state(:,p,i),sqrt(R)*randn(nm,1));
+        end
+
+        [particle_state,estState,temp_particle_var,...
+         cmean,ccovar,cweight] = ...
+                       PGM_DS_update(i,n,nm,numStep,numParticles,...
+                                   numMixture,numMixture_max,...
+                                   1,cweight,idx,meas,likelih,R,...
+                                   particle_state,particle_clust,...
+                                   particle_meas,particle_mean,...
+                                   particle_var,estState,...
+                                   temp_particle_var,0,0,0,0,0,0);
+
+        %% For evaluation
+        error(1,:,i) = abs(estState(:,i)-trueState(:,i));
+        chisq(1,i) = error(1,:,i)*(temp_particle_var(:,:,i)\error(1,:,i)');
+
+        for k = length(cweight)
+            cmeanmc(1,:,k,i) = cmean(:,k);
+            ccovarmc(1,:,:,k,i) = ccovar(:,:,k);
+            cweightmc(1,k,i) = cweight(k,1);
+        end
+    end
+    
+    elpst(1) = toc(tStart1);
+
+    temperror = zeros(1,length(error(1,1,:)));
+    temperror(:) = error(1,1,:);
+    
+    if figure_view
+        figure(fig2); 
+        plot(t,estState(1,:),'r','DisplayName', 'PGM-DS')
+        figure(fig3);
+        plot(t,temperror,'r','DisplayName', 'PGM-DS')
+    end
+    end
+
     %% PGM-DU
     if comparison_PGM_DU
     %% Filter Parameters
@@ -167,107 +271,6 @@ for mc = 1:numMC
     estState(:,1) = mean(particle_state(:,:,1),2);
     temp_particle_var(:,:,1) = P0;
 
-    error(1,:,1) = abs(estState(:,1)-trueState(:,1));
-    chisq(1,1) = error(1,:,1)*(temp_particle_var(:,:,1)\error(1,:,1)');
-
-    % Clustering
-    [~,particle_mean,particle_var,~,...
-            cmean,ccovar,cweight,~,~] = ...
-               PGM_DS_clustering(1,n,numParticles,...
-                              particle_state,particle_mean,particle_var,...
-                              epsilon,minpts,numMixture_max,1,1);
-
-    for k = length(cweight)
-        cmeanmc(1,:,k,1) = cmean(:,k);
-        ccovarmc(1,:,:,k,1) = ccovar(:,:,k);
-        cweightmc(1,k,1) = cweight(k,1);
-    end
-
-    %% Main loop
-    tStart1 = tic; 
-
-    for i = 2:numStep
-        %% Prediction
-        for p = 1:numParticles
-            particle_state(:,p,i) = funsys(particle_state(:,p,i-1),sqrt(Q)*randn(1),i-1);
-        end
-    
-        %% Clustering
-        [particle_clust,particle_mean,particle_var,numMixture,...
-                    ~,~,cweight,likelih,idx] = ...
-                       PGM_DS_clustering(i,n,numParticles,...
-                                      particle_state,particle_mean,particle_var,...
-                                      epsilon,minpts,numMixture_max,1,0);
-
-        %% Merging
-        [~,particle_clust,particle_mean,particle_var,...
-            numMixture,cweight,idx] = ...
-                       PGM_DS_merging(i,n,numMixture,cweight,idx,merging_thres,...
-                                    particle_clust,particle_state,...
-                                    particle_mean,particle_var);
-
-        %% Update
-        [particle_state,estState,temp_particle_var,...
-         cmean,ccovar,cweight] = ...
-                       PGM_DS_update(i,n,nm,numStep,numParticles,...
-                                   numMixture,numMixture_max,...
-                                   1,cweight,idx,meas,likelih,R,...
-                                   particle_state,particle_clust,...
-                                   particle_meas,particle_mean,...
-                                   particle_var,estState,...
-                                   temp_particle_var,...
-                                   1,numSigma,lambda,wc,wm,funmeas);
-
-        %% For evaluation
-        error(1,:,i) = abs(estState(:,i)-trueState(:,i));
-        chisq(1,i) = error(2,:,i)*(temp_particle_var(:,:,i)\error(2,:,i)');
-
-        for k = length(cweight)
-            cmeanmc(1,:,k,i) = cmean(:,k);
-            ccovarmc(1,:,:,k,i) = ccovar(:,:,k);
-            cweightmc(1,k,i) = cweight(k,1);
-        end  
-    end
-    
-    elpst(1) = toc(tStart1);
-
-    temperror = zeros(1,length(error(1,1,:)));
-    temperror(:) = error(1,1,:);
-    
-    if figure_view
-        figure(fig2); 
-        plot(t,estState(1,:),'r','DisplayName', 'PGM-DU')
-        figure(fig3); 
-        plot(t,temperror,'r','DisplayName', 'PGM-DU')
-    end
-    end
-
-    %% PGM-DS
-    if comparison_PGM_DS
-    %% Filter Parameters
-    numMixture_max = n+1; % number of Gaussian mixtures
-    minpts = n+1; % Minimum number of neighbors for a core point n + 1
-    epsilon = 10; % Distance to determine if a point is a core point 3
-    
-    %% Initialise
-    particle_state = zeros(n,numParticles,numStep);
-    particle_mean = zeros(n,numMixture_max,numStep);
-    particle_var = zeros(n,n,numMixture_max,numStep);
-    particle_meas = zeros(nm,numParticles,numStep);
-
-    estState = zeros(n,numStep);
-    temp_particle_var = zeros(n,n,numStep);
-
-    %% First time step
-    particle_state(:,:,1) = initial+sqrt(P0)*randn(n,numParticles);
-
-    for p = 1:numParticles
-        particle_meas(:,p,1) = funmeas(particle_state(:,p,1),0);
-    end 
-
-    estState(:,1) = mean(particle_state(:,:,1),2);
-    temp_particle_var(:,:,1) = P0;
-
     error(2,:,1) = abs(estState(:,1)-trueState(:,1));
     chisq(2,1) = error(2,:,1)*(temp_particle_var(:,:,1)\error(2,:,1)');
 
@@ -307,11 +310,7 @@ for mc = 1:numMC
                                     particle_clust,particle_state,...
                                     particle_mean,particle_var);
 
-        %%  Update
-        for p = 1:numParticles
-            particle_meas(:,p,i) = funmeas(particle_state(:,p,i),sqrt(R)*randn(nm,1));
-        end
-
+        %% Update
         [particle_state,estState,temp_particle_var,...
          cmean,ccovar,cweight] = ...
                        PGM_DS_update(i,n,nm,numStep,numParticles,...
@@ -320,7 +319,8 @@ for mc = 1:numMC
                                    particle_state,particle_clust,...
                                    particle_meas,particle_mean,...
                                    particle_var,estState,...
-                                   temp_particle_var,0,0,0,0,0,0);
+                                   temp_particle_var,...
+                                   1,numSigma,lambda,wc,wm,funmeas);
 
         %% For evaluation
         error(2,:,i) = abs(estState(:,i)-trueState(:,i));
@@ -330,7 +330,7 @@ for mc = 1:numMC
             cmeanmc(2,:,k,i) = cmean(:,k);
             ccovarmc(2,:,:,k,i) = ccovar(:,:,k);
             cweightmc(2,k,i) = cweight(k,1);
-        end
+        end  
     end
     
     elpst(2) = toc(tStart2);
@@ -340,32 +340,22 @@ for mc = 1:numMC
     
     if figure_view
         figure(fig2); 
-        plot(t,estState(1,:),'g','DisplayName', 'PGM-DS')
-        figure(fig3);
-        plot(t,temperror,'g','DisplayName', 'PGM-DS')
+        plot(t,estState(1,:),'g','DisplayName', 'PGM-DU')
+        figure(fig3); 
+        plot(t,temperror,'g','DisplayName', 'PGM-DU')
     end
     end
-
-    %% PGM-UT
-    if comparison_PGM_UT
+  
+    %% PGM1
+    if comparison_PGM1
     %% Filter Parameters
     numMixture_max = 3; % number of Gaussian mixtures
-
-    numSigma = 2*n+1;
-    alpha = 1.3;
-    beta = 1.5;
-    kappa = 0;
-    lambda = 0.2;
-    % lambda = alpha^2*(n+kappa)-n;
     
-    %% initialise
+    %% Initialise
     particle_state = zeros(n,numParticles,numStep);
     particle_mean = zeros(n,numMixture_max,numStep);
     particle_var = zeros(n,n,numMixture_max,numStep);
     particle_meas = zeros(nm,numParticles,numStep);
-
-    wm = zeros(numSigma,1);
-    wc = zeros(numSigma,1);
 
     estState = zeros(n,numStep);
     temp_particle_var = zeros(n,n,numStep);
@@ -377,14 +367,6 @@ for mc = 1:numMC
         particle_meas(:,p,1) = funmeas(particle_state(:,p,1),0);
     end 
 
-    wm(1,:) = lambda/(n+lambda);
-    wc(1,:) = lambda/(n+lambda)+(1-alpha^2+beta);
-
-    for j = 2:numSigma   
-        wm(j,:) = 1/(2*(n+lambda));
-        wc(j,:) = wm(j);
-    end
-    
     estState(:,1) = mean(particle_state(:,:,1),2);
     temp_particle_var(:,:,1) = P0;
 
@@ -428,6 +410,10 @@ for mc = 1:numMC
                                     particle_mean,particle_var);
 
         %% Update
+        for p = 1:numParticles
+            particle_meas(:,p,i) = funmeas(particle_state(:,p,i),sqrt(R)*randn(nm,1));
+        end
+    
         [particle_state,estState,temp_particle_var,...
          cmean,ccovar,cweight] = ...
                        PGM_DS_update(i,n,nm,numStep,numParticles,...
@@ -436,8 +422,7 @@ for mc = 1:numMC
                                    particle_state,particle_clust,...
                                    particle_meas,particle_mean,...
                                    particle_var,estState,...
-                                   temp_particle_var,...
-                                   1,numSigma,lambda,wc,wm,funmeas);
+                                   temp_particle_var,0,0,0,0,0,0);
 
         %% For evaluation
         error(3,:,i) = abs(estState(:,i)-trueState(:,i));
@@ -457,22 +442,32 @@ for mc = 1:numMC
     
     if figure_view
         figure(fig2); 
-        plot(t,estState(1,:),'Color','#0072BD','DisplayName', 'PGM-UT')
-        figure(fig3); 
-        plot(t,temperror,'Color','#0072BD','DisplayName', 'PGM-UT')
+        plot(t,estState(1,:),'Color','#0072BD','DisplayName', 'PGM1')
+        figure(fig3);
+        plot(t,temperror,'Color','#0072BD','DisplayName', 'PGM1')
     end
     end
-  
-    %% PGM
-    if comparison_PGM
+
+    %% PGM1-UT
+    if comparison_PGM1_UT
     %% Filter Parameters
     numMixture_max = 3; % number of Gaussian mixtures
+
+    numSigma = 2*n+1;
+    alpha = 1.3;
+    beta = 1.5;
+    kappa = 0;
+    lambda = 0.2;
+    % lambda = alpha^2*(n+kappa)-n;
     
-    %% Initialise
+    %% initialise
     particle_state = zeros(n,numParticles,numStep);
     particle_mean = zeros(n,numMixture_max,numStep);
     particle_var = zeros(n,n,numMixture_max,numStep);
     particle_meas = zeros(nm,numParticles,numStep);
+
+    wm = zeros(numSigma,1);
+    wc = zeros(numSigma,1);
 
     estState = zeros(n,numStep);
     temp_particle_var = zeros(n,n,numStep);
@@ -484,6 +479,14 @@ for mc = 1:numMC
         particle_meas(:,p,1) = funmeas(particle_state(:,p,1),0);
     end 
 
+    wm(1,:) = lambda/(n+lambda);
+    wc(1,:) = lambda/(n+lambda)+(1-alpha^2+beta);
+
+    for j = 2:numSigma   
+        wm(j,:) = 1/(2*(n+lambda));
+        wc(j,:) = wm(j);
+    end
+    
     estState(:,1) = mean(particle_state(:,:,1),2);
     temp_particle_var(:,:,1) = P0;
 
@@ -527,10 +530,6 @@ for mc = 1:numMC
                                     particle_mean,particle_var);
 
         %% Update
-        for p = 1:numParticles
-            particle_meas(:,p,i) = funmeas(particle_state(:,p,i),sqrt(R)*randn(nm,1));
-        end
-    
         [particle_state,estState,temp_particle_var,...
          cmean,ccovar,cweight] = ...
                        PGM_DS_update(i,n,nm,numStep,numParticles,...
@@ -539,7 +538,8 @@ for mc = 1:numMC
                                    particle_state,particle_clust,...
                                    particle_meas,particle_mean,...
                                    particle_var,estState,...
-                                   temp_particle_var,0,0,0,0,0,0);
+                                   temp_particle_var,...
+                                   1,numSigma,lambda,wc,wm,funmeas);
 
         %% For evaluation
         error(4,:,i) = abs(estState(:,i)-trueState(:,i));
@@ -559,9 +559,9 @@ for mc = 1:numMC
     
     if figure_view
         figure(fig2); 
-        plot(t,estState(1,:),'Color','#EDB120','DisplayName', 'PGM')
-        figure(fig3);
-        plot(t,temperror,'Color','#EDB120','DisplayName', 'PGM')
+        plot(t,estState(1,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
+        figure(fig3); 
+        plot(t,temperror,'Color','#EDB120','DisplayName', 'PGM1-UT')
     end
     end
 
@@ -1014,10 +1014,10 @@ end
 
 % Plot RMSE
 figure; hold on; legend;
-plot(t,rmse(1,:),'r','DisplayName', 'PGM-DU')
-plot(t,rmse(2,:),'g','DisplayName', 'PGM-DS')
-plot(t,rmse(3,:),'Color','#0072BD','DisplayName', 'PGM-UT')
-plot(t,rmse(4,:),'Color','#EDB120','DisplayName', 'PGM')
+plot(t,rmse(1,:),'r','DisplayName', 'PGM-DS')
+plot(t,rmse(2,:),'g','DisplayName', 'PGM-DU')
+plot(t,rmse(3,:),'Color','#0072BD','DisplayName', 'PGM1')
+plot(t,rmse(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
 plot(t,rmse(5,:),'m','DisplayName', 'AKKF')
 % plot(t,rmse(6,:),'c','DisplayName', 'EnKF')
 % plot(t,rmse(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
@@ -1043,10 +1043,10 @@ end
 
 % Plot Chisq
 figure; hold on; legend;
-plot(t,chinorm(1,:),'r','DisplayName', 'PGM-DU')
-plot(t,chinorm(2,:),'g','DisplayName', 'PGM-DS')
-plot(t,chinorm(3,:),'Color','#0072BD','DisplayName', 'PGM-UT')
-plot(t,chinorm(4,:),'Color','#EDB120','DisplayName', 'PGM')
+plot(t,chinorm(1,:),'r','DisplayName', 'PGM-DS')
+plot(t,chinorm(2,:),'g','DisplayName', 'PGM-DU')
+plot(t,chinorm(3,:),'Color','#0072BD','DisplayName', 'PGM1')
+plot(t,chinorm(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
 plot(t,chinorm(5,:),'m','DisplayName', 'AKKF')
 % plot(t,chinorm(6,:),'c','DisplayName', 'EnKF')
 % plot(t,chinorm(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
@@ -1083,10 +1083,10 @@ end
 
 % Plot Chisq
 figure; hold on; legend;
-plot(t,chifrac(1,:),'r','DisplayName', 'PGM-DU')
-plot(t,chifrac(2,:),'g','DisplayName', 'PGM-DS')
-plot(t,chifrac(3,:),'Color','#0072BD','DisplayName', 'PGM-UT')
-plot(t,chifrac(4,:),'Color','#EDB120','DisplayName', 'PGM')
+plot(t,chifrac(1,:),'r','DisplayName', 'PGM-DS')
+plot(t,chifrac(2,:),'g','DisplayName', 'PGM-DU')
+plot(t,chifrac(3,:),'Color','#0072BD','DisplayName', 'PGM1')
+plot(t,chifrac(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
 plot(t,chifrac(5,:),'m','DisplayName', 'AKKF')
 % plot(t,chifrac(6,:),'c','DisplayName', 'EnKF')
 % plot(t,chifrac(7,:),'Color','#7E2F8E','DisplayName', 'EKF')

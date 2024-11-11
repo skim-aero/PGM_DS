@@ -1,7 +1,7 @@
 %% Particle Gaussian Mixture Filter with DBSCAN (and with UT)
 % Sukkeun Kim (Sukkeun.Kim@cranfield.ac.uk)
 
-clc; clear all; close all;
+clc; clear; close all;
 addpath('functions')
 
 warning('off','all')
@@ -10,10 +10,10 @@ warning
 figure_view = 1;
 animation_view = 0;         % 1: show pdf animation / 0: no pdf animation
 recordVid_view = 0;         % 1: record pdf animation / 0: no record
-comparison_PGM_DU = 1;      % 1: compare with PGM_DU  / 0: no comparison
 comparison_PGM_DS = 1;      % 1: compare with PGM_DS  / 0: no comparison
-comparison_PGM_UT = 1;      % 1: compare with PGM_UT  / 0: no comparison
-comparison_PGM = 1;         % 1: compare with PGM  / 0: no comparison
+comparison_PGM_DU = 1;      % 1: compare with PGM_DU  / 0: no comparison
+comparison_PGM1 = 1;        % 1: compare with PGM1  / 0: no comparison
+comparison_PGM1_UT = 1;     % 1: compare with PGM1_UT  / 0: no comparison
 comparison_AKKF = 1;        % 1: compare with AKKF  / 0: no comparison
 comparison_EnKF = 0;        % 1: compare with EnKF / 0: no comparison
 comparison_EKF = 0;         % 1: compare with EKF / 0: no comparison
@@ -26,7 +26,7 @@ numEnsembles = numParticles;
 numMixturetemp = 10;
 numMC = 1;
 
-rng(5);
+rng(22); % 42
 
 %% Define a Scenario
 % Time
@@ -146,47 +146,29 @@ for mc = 1:numMC
         ylabel('|Estimation error| (rad)')
     end
 
-    %% PGM-DU
-    if comparison_PGM_DU
+    %% PGM-DS
+    if comparison_PGM_DS
     %% Filter Parameters
     numMixture_max = n+1; % number of Gaussian mixtures
     minpts = n+1; % Minimum number of neighbors for a core point n + 1
     epsilon = 5; % Distance to determine if a point is a core point 3
-
-    numSigma = 2*n+1;
-    alpha = 1;
-    beta = 2;
-    kappa = 0;
-    lambda = alpha^2*(n+kappa)-n;
     
     %% Initialise
     particle_state = zeros(n,numParticles,numStep);
     particle_mean = zeros(n,numMixture_max,numStep);
     particle_var = zeros(n,n,numMixture_max,numStep);
     particle_meas = zeros(nm,numParticles,numStep);
-
-    wm = zeros(numSigma,1);
-    wc = zeros(numSigma,1);
-
+    
     estState = zeros(n,numStep);
     temp_particle_var = zeros(n,n,numStep);
 
     %% First time step
-    % particle_state(:,:,1) = [2*pi*rand(1,numParticles);initial+P0*randn(1,numParticles)];
     particle_state(:,:,1) = initial+sqrt(P0)*randn(n,numParticles);
 
     for p = 1:numParticles
         particle_meas(:,p,1) = funmeas(particle_state(:,p,1),0);
     end 
 
-    wm(1,:) = lambda/(n+lambda);
-    wc(1,:) = lambda/(n+lambda)+(1-alpha^2+beta);
-
-    for j = 2:numSigma   
-        wm(j,:) = 1/(2*(n+lambda));
-        wc(j,:) = wm(j);
-    end
-    
     estState(:,1) = mean(particle_state(:,:,1),2);
     temp_particle_var(:,:,1) = P0;
 
@@ -243,7 +225,11 @@ for mc = 1:numMC
                                     particle_clust,particle_state,...
                                     particle_mean,particle_var);
 
-        %% Update
+        %%  Update
+        for p = 1:numParticles
+            particle_meas(:,p,i) = funmeas(particle_state(:,p,i),sqrt(R)*randn(nm,1));
+        end
+
         [particle_state,estState,temp_particle_var,...
          cmean,ccovar,cweight] = ...
                        PGM_DS_update(i,n,nm,numStep,numParticles,...
@@ -252,8 +238,7 @@ for mc = 1:numMC
                                    particle_state,particle_clust,...
                                    particle_meas,particle_mean,...
                                    particle_var,estState,...
-                                   temp_particle_var,...
-                                   1,numSigma,lambda,wc,wm,funmeas);
+                                   temp_particle_var,0,0,0,0,0,0);
 
         %% For evaluation
         error(1,:,i) = abs(estState(:,i)-trueState(:,i));
@@ -263,8 +248,8 @@ for mc = 1:numMC
             cmeanmc(1,:,k,i) = cmean(:,k);
             ccovarmc(1,:,:,k,i) = ccovar(:,:,k);
             cweightmc(1,k,i) = cweight(k,1);
-        end  
-
+        end
+    
         particle_pos = funpos(particle_state(:,:,i));
         if animation_view
             delete(fig_truePos)
@@ -288,25 +273,25 @@ for mc = 1:numMC
 
     elpst(1) = toc(tStart1);
     avgerr = mean(error(1,1,:));
-    
+
     if avgerr < 0.5
         crcnt(1) = 1;
     end
-    
+
     temperror = zeros(1,length(error(1,1,:)));
     temperror(:) = error(1,1,:);
 
     if figure_view
         figure(fig2); 
-        plot(t,estState(1,:),'r','DisplayName', 'PGM-DU')
-        figure(fig3);
-        plot(t,estState(2,:),'r','DisplayName', 'PGM-DU')
+        plot(t,estState(1,:),'r','DisplayName', 'PGM-DS')
+        figure(fig3); 
+        plot(t,estState(2,:),'r','DisplayName', 'PGM-DS')
         figure(fig4);
-        plot(t,temperror,'r','DisplayName', 'PGM-DU')
+        plot(t,temperror,'r','DisplayName', 'PGM-DS')
     end
 
     if recordVid_view
-        writeObj = VideoWriter('PGM-DU','MPEG-4');
+        writeObj = VideoWriter('PGM-DS','MPEG-4');
         writeObj.FrameRate = framerate;
         open(writeObj);
         writeVideo(writeObj,frame);
@@ -314,29 +299,47 @@ for mc = 1:numMC
     end
     end
 
-    %% PGM-DS
-    if comparison_PGM_DS
+    %% PGM-DU
+    if comparison_PGM_DU
     %% Filter Parameters
     numMixture_max = n+1; % number of Gaussian mixtures
     minpts = n+1; % Minimum number of neighbors for a core point n + 1
     epsilon = 5; % Distance to determine if a point is a core point 3
+
+    numSigma = 2*n+1;
+    alpha = 1;
+    beta = 2;
+    kappa = 0;
+    lambda = alpha^2*(n+kappa)-n;
     
     %% Initialise
     particle_state = zeros(n,numParticles,numStep);
     particle_mean = zeros(n,numMixture_max,numStep);
     particle_var = zeros(n,n,numMixture_max,numStep);
     particle_meas = zeros(nm,numParticles,numStep);
-    
+
+    wm = zeros(numSigma,1);
+    wc = zeros(numSigma,1);
+
     estState = zeros(n,numStep);
     temp_particle_var = zeros(n,n,numStep);
 
     %% First time step
+    % particle_state(:,:,1) = [2*pi*rand(1,numParticles);initial+P0*randn(1,numParticles)];
     particle_state(:,:,1) = initial+sqrt(P0)*randn(n,numParticles);
 
     for p = 1:numParticles
         particle_meas(:,p,1) = funmeas(particle_state(:,p,1),0);
     end 
 
+    wm(1,:) = lambda/(n+lambda);
+    wc(1,:) = lambda/(n+lambda)+(1-alpha^2+beta);
+
+    for j = 2:numSigma   
+        wm(j,:) = 1/(2*(n+lambda));
+        wc(j,:) = wm(j);
+    end
+    
     estState(:,1) = mean(particle_state(:,:,1),2);
     temp_particle_var(:,:,1) = P0;
 
@@ -393,11 +396,7 @@ for mc = 1:numMC
                                     particle_clust,particle_state,...
                                     particle_mean,particle_var);
 
-        %%  Update
-        for p = 1:numParticles
-            particle_meas(:,p,i) = funmeas(particle_state(:,p,i),sqrt(R)*randn(nm,1));
-        end
-
+        %% Update
         [particle_state,estState,temp_particle_var,...
          cmean,ccovar,cweight] = ...
                        PGM_DS_update(i,n,nm,numStep,numParticles,...
@@ -406,7 +405,8 @@ for mc = 1:numMC
                                    particle_state,particle_clust,...
                                    particle_meas,particle_mean,...
                                    particle_var,estState,...
-                                   temp_particle_var,0,0,0,0,0,0);
+                                   temp_particle_var,...
+                                   1,numSigma,lambda,wc,wm,funmeas);
 
         %% For evaluation
         error(2,:,i) = abs(estState(:,i)-trueState(:,i));
@@ -416,8 +416,8 @@ for mc = 1:numMC
             cmeanmc(2,:,k,i) = cmean(:,k);
             ccovarmc(2,:,:,k,i) = ccovar(:,:,k);
             cweightmc(2,k,i) = cweight(k,1);
-        end
-    
+        end  
+
         particle_pos = funpos(particle_state(:,:,i));
         if animation_view
             delete(fig_truePos)
@@ -441,25 +441,177 @@ for mc = 1:numMC
 
     elpst(2) = toc(tStart2);
     avgerr = mean(error(2,1,:));
-
+    
     if avgerr < 0.5
         crcnt(2) = 1;
     end
-
+    
     temperror = zeros(1,length(error(2,1,:)));
     temperror(:) = error(2,1,:);
 
     if figure_view
         figure(fig2); 
-        plot(t,estState(1,:),'g','DisplayName', 'PGM-DS')
-        figure(fig3); 
-        plot(t,estState(2,:),'g','DisplayName', 'PGM-DS')
+        plot(t,estState(1,:),'g','DisplayName', 'PGM-DU')
+        figure(fig3);
+        plot(t,estState(2,:),'g','DisplayName', 'PGM-DU')
         figure(fig4);
-        plot(t,temperror,'g','DisplayName', 'PGM-DS')
+        plot(t,temperror,'g','DisplayName', 'PGM-DU')
     end
 
     if recordVid_view
-        writeObj = VideoWriter('PGM-DS','MPEG-4');
+        writeObj = VideoWriter('PGM-DU','MPEG-4');
+        writeObj.FrameRate = framerate;
+        open(writeObj);
+        writeVideo(writeObj,frame);
+        close(writeObj);
+    end
+    end
+  
+    %% PGM1
+    if comparison_PGM1
+    %% Filter Parameters
+    numMixture_max = 2; % number of Gaussian mixtures
+    
+    %% Initialise
+    particle_state = zeros(n,numParticles,numStep);
+    particle_mean = zeros(n,numMixture_max,numStep);
+    particle_var = zeros(n,n,numMixture_max,numStep);
+    particle_meas = zeros(nm,numParticles,numStep);
+    
+    estState = zeros(n,numStep);
+    temp_particle_var = zeros(n,n,numStep);
+
+    %% First time step
+    particle_state(:,:,1) = initial+sqrt(P0)*randn(n,numParticles);
+
+    for p = 1:numParticles
+        particle_meas(:,p,1) = funmeas(particle_state(:,p,1),0);
+    end 
+
+    estState(:,1) = mean(particle_state(:,:,1),2);
+    temp_particle_var(:,:,1) = P0;
+
+    error(3,:,1) = abs(estState(:,1)-trueState(:,1));
+    chisq(3,1) = error(3,:,1)*(temp_particle_var(:,:,1)\error(3,:,1)');
+    
+    % Clustering
+    [~,particle_mean,particle_var,~,...
+                cmean,ccovar,cweight,~,~] = ...
+                   PGM_DS_clustering(1,n,numParticles,...
+                                  particle_state,particle_mean,particle_var,...
+                                  0,0,numMixture_max,0,1);
+
+    for k = length(cweight)
+        cmeanmc(3,:,k,1) = cmean(:,k);
+        ccovarmc(3,:,:,k,1) = ccovar(:,:,k);
+        cweightmc(3,k,1) = cweight(k,1);
+    end
+    
+    particle_pos = funpos(particle_state(:,:,1));
+    if animation_view
+        fig99 = figure; hold on; axis equal; legend;
+
+        estPos = funpos(estState(:,1));
+        plot(L*cos(theta),L*sin(theta),'k:','HandleVisibility','off');
+        fig_partPos = plot(particle_pos(1,:),particle_pos(2,:),'r.','DisplayName','Particles');
+        fig_estPos = plot(estPos(1),estPos(2),'bo','DisplayName','Estimated','MarkerFaceColor','b');
+        fig_truePos = plot(truePos(1,1),truePos(2,1),'ko','DisplayName','True','MarkerFaceColor','k');
+        range = plot([0 truePos(1,1)],[0 truePos(2,1)],'k:','HandleVisibility','off');
+        title('True and Estimated Positions')
+%         frame(1) = getframe(gcf);
+    end
+
+    %% Main loop
+    tStart3 = tic; 
+
+    for i = 2:numStep
+        %% Prediction
+        for p = 1:numParticles
+            particle_state(:,p,i) = funsys(particle_state(:,p,i-1),sqrt(Q)*randn(1));
+        end
+
+        %% Clustering
+        [particle_clust,particle_mean,particle_var,numMixture,...
+                    ~,~,cweight,likelih,idx] = ...
+                       PGM_DS_clustering(i,n,numParticles,...
+                                      particle_state,particle_mean,particle_var,...
+                                      0,0,numMixture_max,0,0);
+
+        %% Merging
+        [~,particle_clust,particle_mean,particle_var,...
+            numMixture,cweight,idx] = ...
+                       PGM_DS_merging(i,n,numMixture,cweight,idx,merging_thres,...
+                                    particle_clust,particle_state,...
+                                    particle_mean,particle_var);
+
+        %%  Update
+        for p = 1:numParticles
+            particle_meas(:,p,i) = funmeas(particle_state(:,p,i),sqrt(R)*randn(nm,1));
+        end
+
+        [particle_state,estState,temp_particle_var,...
+         cmean,ccovar,cweight] = ...
+                       PGM_DS_update(i,n,nm,numStep,numParticles,...
+                                   numMixture,numMixture_max,...
+                                   1,cweight,idx,meas,likelih,R,...
+                                   particle_state,particle_clust,...
+                                   particle_meas,particle_mean,...
+                                   particle_var,estState,...
+                                   temp_particle_var,0,0,0,0,0,0);
+        
+        %% For evaluation
+        error(3,:,i) = abs(estState(:,i)-trueState(:,i));
+        chisq(3,i) = error(3,:,i)*(temp_particle_var(:,:,i)\error(3,:,i)');
+
+        for k = length(cweight)
+            cmeanmc(3,:,k,i) = cmean(:,k);
+            ccovarmc(3,:,:,k,i) = ccovar(:,:,k);
+            cweightmc(3,k,i) = cweight(k,1);
+        end
+    
+        particle_pos = funpos(particle_state(:,:,i));
+        if animation_view
+            delete(fig_truePos)
+            delete(fig_partPos)
+            delete(fig_estPos)
+            delete(range)
+            estPos = funpos(estState(:,i));
+            fig_partPos = plot(particle_pos(1,:),particle_pos(2,:),'r.','DisplayName','Particles');
+            fig_estPos = plot(estPos(1),estPos(2),'bo','DisplayName','Estimated','MarkerFaceColor','b');
+            fig_truePos = plot(truePos(1,i),truePos(2,i),'ko','DisplayName','True','MarkerFaceColor','k');
+            range = plot([0 truePos(1,i)],[0 truePos(2,i)],'k:','HandleVisibility','off');
+            drawnow;
+
+%             frame(i) = getframe(gcf);
+%             delete(fig_pdf);
+%             gmPDF1 = @(x) arrayfun(@(x0) pdf(gm,x0),x);  % PDF
+%             fig_pdf = fplot(gmPDF1,'r');
+%             drawnow;
+        end
+
+    end
+
+    elpst(3) = toc(tStart3);
+    avgerr = mean(error(3,1,:));
+
+    if avgerr < 0.5
+        crcnt(3) = 1;
+    end
+
+    temperror = zeros(1,length(error(3,1,:)));
+    temperror(:) = error(3,1,:);
+
+    if figure_view
+        figure(fig2); 
+        plot(t,estState(1,:),'Color','#0072BD','DisplayName', 'PGM1')
+        figure(fig3);
+        plot(t,estState(2,:),'Color','#0072BD','DisplayName', 'PGM1')
+        figure(fig4);
+        plot(t,temperror,'Color','#0072BD','DisplayName', 'PGM1')
+    end
+    
+    if recordVid_view
+        writeObj = VideoWriter('PGM','MPEG-4');
         writeObj.FrameRate = framerate;
         open(writeObj);
         writeVideo(writeObj,frame);
@@ -467,8 +619,8 @@ for mc = 1:numMC
     end
     end
 
-    %% PGM-UT
-    if comparison_PGM_UT
+     %% PGM-UT
+    if comparison_PGM1_UT
     %% Filter Parameters
     numMixture_max = 2; % number of Gaussian mixtures
 
@@ -508,157 +660,9 @@ for mc = 1:numMC
     estState(:,1) = mean(particle_state(:,:,1),2);
     temp_particle_var(:,:,1) = P0;
 
-    error(3,:,1) = abs(estState(:,1)-trueState(:,1));
-    chisq(3,1) = error(3,:,1)*(temp_particle_var(:,:,1)\error(3,:,1)');
-
-    % Clustering
-    [~,particle_mean,particle_var,~,...
-                cmean,ccovar,cweight,~,~] = ...
-                   PGM_DS_clustering(1,n,numParticles,...
-                                  particle_state,particle_mean,particle_var,...
-                                  0,0,numMixture_max,0,1);
-
-    for k = length(cweight)
-        cmeanmc(3,:,k,1) = cmean(:,k);
-        ccovarmc(3,:,:,k,1) = ccovar(:,:,k);
-        cweightmc(3,k,1) = cweight(k,1);
-    end
-    
-    particle_pos = funpos(particle_state(:,:,1));
-    if animation_view
-        fig99 = figure; hold on; axis equal; legend;
-
-        estPos = funpos(estState(:,1));
-        plot(L*cos(theta),L*sin(theta),'k:','HandleVisibility','off');
-        fig_partPos = plot(particle_pos(1,:),particle_pos(2,:),'r.','DisplayName','Particles');
-        fig_estPos = plot(estPos(1),estPos(2),'bo','DisplayName','Estimated','MarkerFaceColor','b');
-        fig_truePos = plot(truePos(1,1),truePos(2,1),'ko','DisplayName','True','MarkerFaceColor','k');
-        range = plot([0 truePos(1,1)],[0 truePos(2,1)],'k:','HandleVisibility','off');
-        title('True and Estimated Positions')
-%         frame(1) = getframe(gcf);
-    end
-
-    %% Main loop
-    tStart3 = tic; 
-
-    for i = 2:numStep
-        %% Prediction
-        for p = 1:numParticles
-            particle_state(:,p,i) = funsys(particle_state(:,p,i-1),sqrt(Q)*randn(1));
-        end
-    
-        %% Clustering
-        [particle_clust,particle_mean,particle_var,numMixture,...
-                    ~,~,cweight,likelih,idx] = ...
-                       PGM_DS_clustering(i,n,numParticles,...
-                                      particle_state,particle_mean,particle_var,...
-                                      0,0,numMixture_max,0,0);
-
-        %% Merging
-        [~,particle_clust,particle_mean,particle_var,...
-            numMixture,cweight,idx] = ...
-                       PGM_DS_merging(i,n,numMixture,cweight,idx,merging_thres,...
-                                    particle_clust,particle_state,...
-                                    particle_mean,particle_var);
-
-        %% Update
-        [particle_state,estState,temp_particle_var,...
-         cmean,ccovar,cweight] = ...
-                       PGM_DS_update(i,n,nm,numStep,numParticles,...
-                                   numMixture,numMixture_max,...
-                                   1,cweight,idx,meas,likelih,R,...
-                                   particle_state,particle_clust,...
-                                   particle_meas,particle_mean,...
-                                   particle_var,estState,...
-                                   temp_particle_var,...
-                                   1,numSigma,lambda,wc,wm,funmeas);
-
-        %% For evaluation
-        error(3,:,i) = abs(estState(:,i)-trueState(:,i));
-        chisq(3,i) = error(3,:,i)*(temp_particle_var(:,:,i)\error(3,:,i)');
-
-        for k = length(cweight)
-            cmeanmc(3,:,k,i) = cmean(:,k);
-            ccovarmc(3,:,:,k,i) = ccovar(:,:,k);
-            cweightmc(3,k,i) = cweight(k,1);
-        end  
-
-        particle_pos = funpos(particle_state(:,:,i));
-        if animation_view
-            delete(fig_truePos)
-            delete(fig_partPos)
-            delete(fig_estPos)
-            delete(range)
-            estPos = funpos(estState(:,i));
-            fig_partPos = plot(particle_pos(1,:),particle_pos(2,:),'r.','DisplayName','Particles');
-            fig_estPos = plot(estPos(1),estPos(2),'bo','DisplayName','Estimated','MarkerFaceColor','b');
-            fig_truePos = plot(truePos(1,i),truePos(2,i),'ko','DisplayName','True','MarkerFaceColor','k');
-            range = plot([0 truePos(1,i)],[0 truePos(2,i)],'k:','HandleVisibility','off');
-            drawnow;
-
-%             frame(i) = getframe(gcf);
-%             delete(fig_pdf);
-%             gmPDF1 = @(x) arrayfun(@(x0) pdf(gm,x0),x);  % PDF
-%             fig_pdf = fplot(gmPDF1,'r');
-%             drawnow;
-        end
-    end
-
-    elpst(3) = toc(tStart3);
-    avgerr = mean(error(3,1,:));
-    
-    if avgerr < 0.5
-        crcnt(3) = 1;
-    end
-    
-    temperror = zeros(1,length(error(3,1,:)));
-    temperror(:) = error(3,1,:);
-
-    if figure_view
-        figure(fig2); 
-        plot(t,estState(1,:),'Color','#0072BD','DisplayName', 'PGM-UT')
-        figure(fig3);
-        plot(t,estState(2,:),'Color','#0072BD','DisplayName', 'PGM-UT')
-        figure(fig4);
-        plot(t,temperror,'Color','#0072BD','DisplayName', 'PGM-UT')
-    end
-
-    if recordVid_view
-        writeObj = VideoWriter('PGM-UT','MPEG-4');
-        writeObj.FrameRate = framerate;
-        open(writeObj);
-        writeVideo(writeObj,frame);
-        close(writeObj);
-    end
-    end
-  
-    %% PGM
-    if comparison_PGM
-    %% Filter Parameters
-    numMixture_max = 2; % number of Gaussian mixtures
-    
-    %% Initialise
-    particle_state = zeros(n,numParticles,numStep);
-    particle_mean = zeros(n,numMixture_max,numStep);
-    particle_var = zeros(n,n,numMixture_max,numStep);
-    particle_meas = zeros(nm,numParticles,numStep);
-    
-    estState = zeros(n,numStep);
-    temp_particle_var = zeros(n,n,numStep);
-
-    %% First time step
-    particle_state(:,:,1) = initial+sqrt(P0)*randn(n,numParticles);
-
-    for p = 1:numParticles
-        particle_meas(:,p,1) = funmeas(particle_state(:,p,1),0);
-    end 
-
-    estState(:,1) = mean(particle_state(:,:,1),2);
-    temp_particle_var(:,:,1) = P0;
-
     error(4,:,1) = abs(estState(:,1)-trueState(:,1));
     chisq(4,1) = error(4,:,1)*(temp_particle_var(:,:,1)\error(4,:,1)');
-    
+
     % Clustering
     [~,particle_mean,particle_var,~,...
                 cmean,ccovar,cweight,~,~] = ...
@@ -694,7 +698,7 @@ for mc = 1:numMC
         for p = 1:numParticles
             particle_state(:,p,i) = funsys(particle_state(:,p,i-1),sqrt(Q)*randn(1));
         end
-
+    
         %% Clustering
         [particle_clust,particle_mean,particle_var,numMixture,...
                     ~,~,cweight,likelih,idx] = ...
@@ -709,11 +713,7 @@ for mc = 1:numMC
                                     particle_clust,particle_state,...
                                     particle_mean,particle_var);
 
-        %%  Update
-        for p = 1:numParticles
-            particle_meas(:,p,i) = funmeas(particle_state(:,p,i),sqrt(R)*randn(nm,1));
-        end
-
+        %% Update
         [particle_state,estState,temp_particle_var,...
          cmean,ccovar,cweight] = ...
                        PGM_DS_update(i,n,nm,numStep,numParticles,...
@@ -722,8 +722,9 @@ for mc = 1:numMC
                                    particle_state,particle_clust,...
                                    particle_meas,particle_mean,...
                                    particle_var,estState,...
-                                   temp_particle_var,0,0,0,0,0,0);
-        
+                                   temp_particle_var,...
+                                   1,numSigma,lambda,wc,wm,funmeas);
+
         %% For evaluation
         error(4,:,i) = abs(estState(:,i)-trueState(:,i));
         chisq(4,i) = error(4,:,i)*(temp_particle_var(:,:,i)\error(4,:,i)');
@@ -732,8 +733,8 @@ for mc = 1:numMC
             cmeanmc(4,:,k,i) = cmean(:,k);
             ccovarmc(4,:,:,k,i) = ccovar(:,:,k);
             cweightmc(4,k,i) = cweight(k,1);
-        end
-    
+        end  
+
         particle_pos = funpos(particle_state(:,:,i));
         if animation_view
             delete(fig_truePos)
@@ -753,30 +754,29 @@ for mc = 1:numMC
 %             fig_pdf = fplot(gmPDF1,'r');
 %             drawnow;
         end
-
     end
 
     elpst(4) = toc(tStart4);
     avgerr = mean(error(4,1,:));
-
+    
     if avgerr < 0.5
         crcnt(4) = 1;
     end
-
+    
     temperror = zeros(1,length(error(4,1,:)));
     temperror(:) = error(4,1,:);
 
     if figure_view
         figure(fig2); 
-        plot(t,estState(1,:),'Color','#EDB120','DisplayName', 'PGM')
+        plot(t,estState(1,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
         figure(fig3);
-        plot(t,estState(2,:),'Color','#EDB120','DisplayName', 'PGM')
+        plot(t,estState(2,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
         figure(fig4);
-        plot(t,temperror,'Color','#EDB120','DisplayName', 'PGM')
+        plot(t,temperror,'Color','#EDB120','DisplayName', 'PGM1-UT')
     end
-    
+
     if recordVid_view
-        writeObj = VideoWriter('PGM','MPEG-4');
+        writeObj = VideoWriter('PGM-UT','MPEG-4');
         writeObj.FrameRate = framerate;
         open(writeObj);
         writeVideo(writeObj,frame);
@@ -1390,10 +1390,10 @@ divall = sum(divergecnt(:,:));
 
 % Plot
 figure; hold on; legend;
-plot(t,rmse(1,:),'r','DisplayName', 'PGM-DU')
-plot(t,rmse(2,:),'g','DisplayName', 'PGM-DS')
-plot(t,rmse(3,:),'Color','#0072BD','DisplayName', 'PGM-UT')
-plot(t,rmse(4,:),'Color','#EDB120','DisplayName', 'PGM')
+plot(t,rmse(1,:),'r','DisplayName', 'PGM-DS')
+plot(t,rmse(2,:),'g','DisplayName', 'PGM-DU')
+plot(t,rmse(3,:),'Color','#0072BD','DisplayName', 'PGM1')
+plot(t,rmse(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
 plot(t,rmse(5,:),'m','DisplayName', 'AKKF')
 % plot(t,rmse(6,:),'c','DisplayName', 'EnKF')
 % plot(t,rmse(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
@@ -1419,10 +1419,10 @@ end
 
 % Plot Chisq
 figure; hold on; legend;
-plot(t,chinorm(1,:),'r','DisplayName', 'PGM-DU')
-plot(t,chinorm(2,:),'g','DisplayName', 'PGM-DS')
-plot(t,chinorm(3,:),'Color','#0072BD','DisplayName', 'PGM-UT')
-plot(t,chinorm(4,:),'Color','#EDB120','DisplayName', 'PGM')
+plot(t,chinorm(1,:),'r','DisplayName', 'PGM-DS')
+plot(t,chinorm(2,:),'g','DisplayName', 'PGM-DU')
+plot(t,chinorm(3,:),'Color','#0072BD','DisplayName', 'PGM1')
+plot(t,chinorm(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
 plot(t,chinorm(5,:),'m','DisplayName', 'AKKF')
 % plot(t,chinorm(6,:),'c','DisplayName', 'EnKF')
 % plot(t,chinorm(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
@@ -1459,10 +1459,10 @@ end
 
 % Plot Chisq
 figure; hold on; legend;
-plot(t,chifrac(1,:),'r','DisplayName', 'PGM-DU')
-plot(t,chifrac(2,:),'g','DisplayName', 'PGM-DS')
-plot(t,chifrac(3,:),'Color','#0072BD','DisplayName', 'PGM-UT')
-plot(t,chifrac(4,:),'Color','#EDB120','DisplayName', 'PGM')
+plot(t,chifrac(1,:),'r','DisplayName', 'PGM-DS')
+plot(t,chifrac(2,:),'g','DisplayName', 'PGM-DU')
+plot(t,chifrac(3,:),'Color','#0072BD','DisplayName', 'PGM1')
+plot(t,chifrac(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
 plot(t,chifrac(5,:),'m','DisplayName', 'AKKF')
 % plot(t,chifrac(6,:),'c','DisplayName', 'EnKF')
 % plot(t,chifrac(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
