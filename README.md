@@ -1,8 +1,8 @@
-# PGM-DS: Particle Gaussian Mixture (PGM) Filters with DBSCAN
+# PGM-DS: DBSCAN-based Particle Gaussian Mixture (PGM) Filters
 
 ## 1. Software Introduction
 
-These are particle Gaussian mixture (PGM) filters with DBSCAN:
+These are DBSCAN-based particle Gaussian mixture (PGM) filters:
 There are two algorithms in this repository: PGM-DS and PGM-DU where DU utilised unscented transform (UT) in the updated step just as like as UKF.
 
 Detail of the algorithm can be found from following paper:
