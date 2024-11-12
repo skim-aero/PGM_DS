@@ -6,6 +6,7 @@ These are DBSCAN-based particle Gaussian mixture (PGM) filters:
 There are two algorithms in this repository: PGM-DS and PGM-DU where DU utilised unscented transform (UT) in the updated step just as like as UKF.
 
 Detail of the algorithm can be found from following paper:
+Paper soon be updated and the paper is based on Beta 0.5.
 
 
 **Developed by Sukkeun Kim, Cranfield University, UK**
@@ -18,7 +19,7 @@ Just run with MATLAB! :)
 
 ## 3. Python Example (nonlinear dynamics)
 
-*Py_PGM_DS_filters_nonlinear.py*: Only with PGM-DS and PGM-DU. The comparison with other filters and MC simulation are not considered in this code. All structure is the same as the Matlab code but just for the easy embedding for other environment.
+*PGM_DS_filters_nonlinear.py*: Only with PGM-DS and PGM-DU. The comparison with other filters and MC simulation are not considered in this code. All structure is the same as the Matlab code but just for the easy embedding for other environment.
 
 ## 4. Version Information
 
@@ -27,3 +28,4 @@ Just run with MATLAB! :)
 * 24th Oct 2024 Beta 0.2: Parameter modification
 * 6th Nov 2024 Beta 0.3: Minor function modification
 * 11th Nov 2024 Beta 0.4: Updated figures
+* 14th Nov 2024 Beta 0.5: Minor modifications

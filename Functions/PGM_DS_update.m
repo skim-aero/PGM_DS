@@ -8,158 +8,159 @@ function [particle_state,estState,temp_particle_var,...
                                     particle_var,estState,temp_particle_var,...
                                     ifut,numSigma,lambda,wc,wm,funmeas)
 
-residual = zeros(nm,numMixture_max);
-cmean = zeros(n,numMixture);
-ccovar = zeros(n,n,numMixture);
-
-if ifupd
-    if ifut
-        xs = zeros(n,numSigma,numMixture_max);
-        zs = zeros(nm,numSigma,numMixture_max);
+    residual = zeros(nm,numMixture_max);
+    cmean = zeros(n,numMixture);
+    ccovar = zeros(n,n,numMixture);
     
-        xn = zeros(n,numMixture);
-        zn = zeros(nm,numMixture);
-        Pn = zeros(n,n,numMixture);
-        Pxz = zeros(n,nm,numMixture);
-        Pzz = zeros(nm,nm,numMixture);
-        K = zeros(n,nm,numMixture);
+    if ifupd
+        if ifut
+            xs = zeros(n,numSigma,numMixture_max);
+            zs = zeros(nm,numSigma,numMixture_max);
         
+            xn = zeros(n,numMixture);
+            zn = zeros(nm,numMixture);
+            Pn = zeros(n,n,numMixture);
+            Pxz = zeros(n,nm,numMixture);
+            Pzz = zeros(nm,nm,numMixture);
+            K = zeros(n,nm,numMixture);
+            
+            for clst = 1:numMixture
+                sqrt_P = chol((n+lambda)*particle_var(:,:,clst,i), 'lower'); % Square root of scaled covariance
+                xs(:,1,clst) = particle_mean(:,clst,i);
+        
+                % Sigma points
+                for j = 1:n
+                    xs(:,j+1,clst) = particle_mean(:,clst,i)+sqrt_P(:,j);
+                    xs(:,j+n+1,clst) = particle_mean(:,clst,i)-sqrt_P(:,j);
+                end
+        
+                for j = 1:numSigma
+                    xn(:,clst) = xn(:,clst) + wm(j)*xs(:,j,clst);
+                end
+        
+                for j = 1:numSigma
+                    Pn(:,:,clst) = Pn(:,:,clst) + wc(j)*(xs(:,j,clst)-xn(:,clst))*(xs(:,j,clst)-xn(:,clst))';
+                end
+                Pn(:,:,clst) = Pn(:,:,clst);
+        
+                % Measurements update
+                for j = 1:numSigma
+                    zs(:,j,clst) = funmeas(xs(:,j,clst),0);
+                    zn(:,clst) = zn(:,clst) + wm(j)*zs(:,j,clst);
+                end
+        
+                for j = 1:numSigma
+                    Pxz(:,:,clst) = Pxz(:,:,clst) + wc(j)*(xs(:,j,clst)-xn(:,clst))*(zs(:,j,clst)-zn(:,clst))';
+                    Pzz(:,:,clst) = Pzz(:,:,clst) + wc(j)*(zs(:,j,clst)-zn(:,clst))*(zs(:,j,clst)-zn(:,clst))';
+                end
+                Pzz(:,:,clst) = Pzz(:,:,clst) + Rmat;
+        
+                K(:,:,clst) = Pxz(:,:,clst)/Pzz(:,:,clst);
+                
+                residual(:,clst) = meas(:,i)-zn(:,clst);
+                particle_mean(:,clst,i) = xn(:,clst)+K(:,:,clst)*residual(:,clst);
+                particle_var(:,:,clst,i) = Pn(:,:,clst)-K(:,:,clst)*Pzz(:,:,clst)*K(:,:,clst)';
+                
+                cmean(:,clst) = particle_mean(:,clst,i);
+                ccovar(:,:,clst) = particle_var(:,:,clst,i)';
+                likelih(clst) = cweight(clst)*1/sqrt(norm(2*pi*det(Rmat)))*exp(-1/2*residual(:,clst)'/Rmat*(residual(:,clst)));
+            end
+        else
+            particle_exp = zeros(nm,numMixture_max,numStep);
+            Pzx = zeros(nm,n,numMixture_max);
+            Pzz = zeros(nm,nm,numMixture_max);
+        
+            leng_old = 0;
+        
+            for clst = 1:numMixture
+                leng = length(particle_clust(1,idx==clst,i));
+            
+                for j = 1:nm
+                    particle_exp(j,clst,i) = mean(particle_meas(j,leng_old+1:leng_old+leng,i));
+                end
+    
+                residual(:,clst) = meas(:,i)-particle_exp(:,clst,i);
+            
+                temp_meas = zeros(nm,leng);
+                temp_mean = zeros(n,leng);
+            
+                for j = leng_old+1:leng_old+leng
+                    temp_meas(:,j) = particle_meas(:,j,i)-particle_exp(:,clst,i);
+                    temp_mean(:,j) = particle_clust(:,j,i)-particle_mean(:,clst,i);
+                end
+                
+                Pzx(:,:,clst) = temp_meas(:,:)*temp_mean(:,:)'/leng;
+                Pzz(:,:,clst) = temp_meas(:,:)*temp_meas(:,:)'/leng + Rmat; %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            
+                particle_mean(:,clst,i) = particle_mean(:,clst,i)+Pzx(:,:,clst)'/Pzz(:,:,clst)*residual(:,clst);
+                particle_var(:,:,clst,i) = particle_var(:,:,clst,i)-Pzx(:,:,clst)'/Pzz(:,:,clst)*Pzx(:,:,clst);
+            
+                leng_old = leng_old+leng;
+                cmean(:,clst) = particle_mean(:,clst,i);
+                ccovar(:,:,clst) = particle_var(:,:,clst,i);
+                likelih(clst) = cweight(clst)*1/sqrt(norm(2*pi*det(Rmat)))*exp(-1/2*residual(:,clst)'/Rmat*(residual(:,clst)));
+            end
+        end
+        
+        % save and mixture weight updated based on residual
         for clst = 1:numMixture
-            sqrt_P = chol((n+lambda)*particle_var(:,:,clst,i), 'lower'); % Square root of scaled covariance
-            xs(:,1,clst) = particle_mean(:,clst,i);
-    
-            % Sigma points
-            for j = 1:n
-                xs(:,j+1,clst) = particle_mean(:,clst,i)+sqrt_P(:,j);
-                xs(:,j+n+1,clst) = particle_mean(:,clst,i)-sqrt_P(:,j);
+            cweight(clst) = likelih(clst)/sum(likelih);
+        end
+        
+        cweight = normalize(cweight,"norm",1);
+        
+        if length(cweight) > 1
+            for clst = 1:length(cweight)
+                if sum(likelih) == 0 || isnan(cweight(clst)) || cweight(clst) == 0 %%%%% Need to figure out the better way
+                    cweight = 1/numMixture*ones(numMixture,1);
+                    break
+                end
             end
-    
-            for j = 1:numSigma
-                xn(:,clst) = xn(:,clst) + wm(j)*xs(:,j,clst);
+        else
+            if sum(likelih) == 0 || isnan(cweight) || cweight == 0 %%%%% Need to figure out the better way
+                cweight = 1;
             end
-    
-            for j = 1:numSigma
-                Pn(:,:,clst) = Pn(:,:,clst) + wc(j)*(xs(:,j,clst)-xn(:,clst))*(xs(:,j,clst)-xn(:,clst))';
+        end
+        
+        cweight = normalize(cweight,"norm",1);
+        
+        for clst = 1:length(cweight)
+            estState(:,i) = estState(:,i)+cweight(clst)*particle_mean(:,clst,i);
+                    
+            % Covariance correction tricks
+            if all(eig(ccovar(:,:,clst)) > 0)
+                
+            else
+    %             while all(eig(ccovar(:,:,clst)) < 0)
+                while any(eig(ccovar(:,:,clst)) < 0) || any(eig(ccovar(:,:,clst)) == 0) % Tricyclist
+                    ccovar(:,:,clst) = (ccovar(:,:,clst)+ccovar(:,:,clst).')/2;
+                    ccovar(:,:,clst) = ccovar(:,:,clst)+0.1*eye(n);
+                end
             end
-            Pn(:,:,clst) = Pn(:,:,clst);
-    
-            % Measurements update
-            for j = 1:numSigma
-                zs(:,j,clst) = funmeas(xs(:,j,clst),0);
-                zn(:,clst) = zn(:,clst) + wm(j)*zs(:,j,clst);
-            end
-    
-            for j = 1:numSigma
-                Pxz(:,:,clst) = Pxz(:,:,clst) + wc(j)*(xs(:,j,clst)-xn(:,clst))*(zs(:,j,clst)-zn(:,clst))';
-                Pzz(:,:,clst) = Pzz(:,:,clst) + wc(j)*(zs(:,j,clst)-zn(:,clst))*(zs(:,j,clst)-zn(:,clst))';
-            end
-            Pzz(:,:,clst) = Pzz(:,:,clst) + Rmat;
-    
-            K(:,:,clst) = Pxz(:,:,clst)/Pzz(:,:,clst);
-            
-            residual(:,clst) = meas(:,i)-zn(:,clst);
-            particle_mean(:,clst,i) = xn(:,clst)+K(:,:,clst)*residual(:,clst);
-            particle_var(:,:,clst,i) = Pn(:,:,clst)-K(:,:,clst)*Pzz(:,:,clst)*K(:,:,clst)';
-            
+        end
+        
+        % Sample new particles
+        gm = gmdistribution(cmean',ccovar,cweight);
+        
+        temp = random(gm,numParticles);
+        particle_state(:,:,i) = temp';
+    else
+        for clst = 1:length(cweight)
             cmean(:,clst) = particle_mean(:,clst,i);
             ccovar(:,:,clst) = particle_var(:,:,clst,i)';
-            likelih(clst) = cweight(clst)*1/sqrt(norm(2*pi*det(Rmat)))*exp(-1/2*residual(:,clst)'/Rmat*(residual(:,clst)));
+    
+            estState(:,i) = estState(:,i)+cweight(clst)*particle_mean(:,clst,i);
         end
-    else
-        particle_exp = zeros(nm,numMixture_max,numStep);
-        Pzx = zeros(nm,n,numMixture_max);
-        Pzz = zeros(nm,nm,numMixture_max);
+    end
     
-        leng_old = 0;
-    
-        for clst = 1:numMixture
-            leng = length(particle_clust(1,idx==clst,i));
-        
-            for j = 1:nm
-                particle_exp(j,clst,i) = mean(particle_meas(j,leng_old+1:leng_old+leng,i));
+    for j = 1:n
+        for k = 1:n
+            if j == k
+                temp_particle_var(j,k,i) = var(particle_state(j,:,i));
+            else
+                temp = cov(particle_state(j,:,i),particle_state(k,:,i));
+                temp_particle_var(j,k,i) = temp(1,2);
             end
-
-            residual(:,clst) = meas(:,i)-particle_exp(:,clst,i);
-        
-            temp_meas = zeros(nm,leng);
-            temp_mean = zeros(n,leng);
-        
-            for j = leng_old+1:leng_old+leng
-                temp_meas(:,j) = particle_meas(:,j,i)-particle_exp(:,clst,i);
-                temp_mean(:,j) = particle_clust(:,j,i)-particle_mean(:,clst,i);
-            end
-            
-            Pzx(:,:,clst) = temp_meas(:,:)*temp_mean(:,:)'/leng;
-            Pzz(:,:,clst) = temp_meas(:,:)*temp_meas(:,:)'/leng + Rmat; %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        
-            particle_mean(:,clst,i) = particle_mean(:,clst,i)+Pzx(:,:,clst)'/Pzz(:,:,clst)*residual(:,clst);
-            particle_var(:,:,clst,i) = particle_var(:,:,clst,i)-Pzx(:,:,clst)'/Pzz(:,:,clst)*Pzx(:,:,clst);
-        
-            leng_old = leng_old+leng;
-            cmean(:,clst) = particle_mean(:,clst,i);
-            ccovar(:,:,clst) = particle_var(:,:,clst,i);
-            likelih(clst) = cweight(clst)*1/sqrt(norm(2*pi*det(Rmat)))*exp(-1/2*residual(:,clst)'/Rmat*(residual(:,clst)));
-        end
-    end
-    
-    % save and mixture weight updated based on residual
-    for clst = 1:numMixture
-        cweight(clst) = likelih(clst)/sum(likelih);
-    end
-    
-    cweight = normalize(cweight,"norm",1);
-    
-    if length(cweight) > 1
-        for clst = 1:length(cweight)
-            if sum(likelih) == 0 || isnan(cweight(clst)) || cweight(clst) == 0 %%%%% Need to figure out the better way
-                cweight = 1/numMixture*ones(numMixture,1);
-                break
-            end
-        end
-    else
-        if sum(likelih) == 0 || isnan(cweight) || cweight == 0 %%%%% Need to figure out the better way
-            cweight = 1;
-        end
-    end
-    
-    cweight = normalize(cweight,"norm",1);
-    
-    for clst = 1:length(cweight)
-        estState(:,i) = estState(:,i)+cweight(clst)*particle_mean(:,clst,i);
-                
-        % Covariance correction tricks
-        if all(eig(ccovar(:,:,clst)) > 0)
-            
-        else
-%             while all(eig(ccovar(:,:,clst)) < 0)
-            while any(eig(ccovar(:,:,clst)) < 0) || any(eig(ccovar(:,:,clst)) == 0) % Tricyclist
-                ccovar(:,:,clst) = (ccovar(:,:,clst)+ccovar(:,:,clst).')/2;
-                ccovar(:,:,clst) = ccovar(:,:,clst)+0.1*eye(n);
-            end
-        end
-    end
-    
-    % Sample new particles
-    gm = gmdistribution(cmean',ccovar,cweight);
-    
-    temp = random(gm,numParticles);
-    particle_state(:,:,i) = temp';
-else
-    for clst = 1:length(cweight)
-        cmean(:,clst) = particle_mean(:,clst,i);
-        ccovar(:,:,clst) = particle_var(:,:,clst,i)';
-
-        estState(:,i) = estState(:,i)+cweight(clst)*particle_mean(:,clst,i);
-    end
-end
-
-for j = 1:n
-    for k = 1:n
-        if j == k
-            temp_particle_var(j,k,i) = var(particle_state(j,:,i));
-        else
-            temp = cov(particle_state(j,:,i),particle_state(k,:,i));
-            temp_particle_var(j,k,i) = temp(1,2);
         end
     end
 end
