@@ -30,3 +30,4 @@ Just run with MATLAB! :)
 * 11th Nov 2024 Beta 0.4: Updated figures
 * 14th Nov 2024 Beta 0.5: Minor modifications
 * 16th Nov 2024 Beta 0.6: Minor function modification + Blid tryciclist example added
+* 17th Nov 2024 Beta 0.7: Updated functions

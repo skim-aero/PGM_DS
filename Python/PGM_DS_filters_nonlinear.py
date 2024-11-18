@@ -209,8 +209,6 @@ class PGM_DS(object):
             zs = np.zeros((self.nm,self.ut_numsigma))
 
             for clst in range(self.numMixture):
-                leng = np.sum(label == clst)
-
                 xn = np.zeros((self.n,1))
                 zn = np.zeros((self.nm,1))
                 Pn = np.zeros((self.n,self.n))
@@ -249,8 +247,6 @@ class PGM_DS(object):
                 self.particle_var[:,:,clst]= Pn - K*Pzz*K[:,None]
 
                 likelih[clst] = self.cweight[clst]*(1/np.sqrt(2*self.R))*np.exp(-0.5*((residual)/self.Rmat)**2)
-                
-                leng_old += leng
         else:
             for p in range(self.numParticles):
                 self.particle_meas[:,p] = self.funmeas(self.particle[:,p,t],np.sqrt(self.R)*np.random.randn(self.nm,1))

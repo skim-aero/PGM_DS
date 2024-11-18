@@ -91,13 +91,11 @@ function [estState,x,P] = ...
         end
 
         % Covariance correction tricks
-        if all(eig(P)>0)
-     
-        else
-            while all(eig(P)>0)
-                P = (P+P.')/2;
-                P = P+0.1*eye(n);
-            end
+        P = (P+P.')/2;
+        
+        % Check and correct eigenvalues if necessary
+        while any(eig(P) <= 1e-8)
+            P = P+0.1*eye(n);
         end
 
         estState(:,i) = x;

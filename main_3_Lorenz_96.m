@@ -9,10 +9,10 @@ warning
 
 %% Simulation settings
 figure_view = 1;
-comparison_PGM_DS = 0;      % 1: compare with PGM_DS  / 0: no comparison
-comparison_PGM_DU = 0;      % 1: compare with PGM_DU  / 0: no comparison
-comparison_PGM1 = 0;        % 1: compare with PGM1  / 0: no comparison
-comparison_PGM1_UT = 0;     % 1: compare with PGM1_UT  / 0: no comparison
+comparison_PGM_DS = 1;      % 1: compare with PGM_DS  / 0: no comparison
+comparison_PGM_DU = 1;      % 1: compare with PGM_DU  / 0: no comparison
+comparison_PGM1 = 1;        % 1: compare with PGM1  / 0: no comparison
+comparison_PGM1_UT = 1;     % 1: compare with PGM1_UT  / 0: no comparison
 comparison_AKKF = 0;        % 1: compare with AKKF / 0: no comparison
 comparison_EnKF = 1;        % 1: compare with EnKF / 0: no comparison
 comparison_EKF = 0;         % 1: compare with EKF / 0: no comparison
@@ -184,7 +184,7 @@ for mc = 1:numMC
         for i = 2:numStep
             %% Prediction
             for p = 1:numParticles
-                particles(:,p,i) = Lorenz4DP(Param_F,particles(:,p,i-1),Q);
+                particles(:,p,i) = Lorenz4DP(particles(:,p,i-1),Q,Param_F);
             end
         
             %% Clustering
@@ -193,14 +193,14 @@ for mc = 1:numMC
                            PGM_DS_clustering(i,n,numParticles,...
                                           particles,particle_mean,particle_var,...
                                           epsilon,minpts,numMixture_max,1,0);
-    
+
             %% Merging
             [~,particle_clust,particle_mean,particle_var,...
                 numMixture,cweight,idx] = ...
                            PGM_DS_merging(i,n,numMixture,cweight,idx,merging_thres,...
                                         particle_clust,particles,...
                                         particle_mean,particle_var);
-    
+            
             %% Update
             for p = 1:numParticles
                 particle_meas(:,p,i) = funmeas(particles(:,p,i),sqrt(R)*randn(nm,1));
@@ -227,7 +227,7 @@ for mc = 1:numMC
                                            particle_var,estState,...
                                            temp_particle_var,0,0,0,0,0,0);
             end
-    
+
             %% For evaluation
             error(1,:,i) = abs(estState(:,i)-trueState(:,i));
             chisq(1,i) = error(1,:,i)*(temp_particle_var(:,:,i)\error(1,:,i)');
@@ -311,7 +311,7 @@ for mc = 1:numMC
         for i = 2:numStep
             %% Prediction
             for p = 1:numParticles
-                particles(:,p,i) = Lorenz4DP(Param_F,particles(:,p,i-1),Q);
+                particles(:,p,i) = Lorenz4DP(particles(:,p,i-1),Q,Param_F);
             end
         
             %% Clustering
@@ -422,7 +422,7 @@ for mc = 1:numMC
         for i = 2:numStep
             %% Prediction
             for p = 1:numParticles
-                particles(:,p,i) = Lorenz4DP(Param_F,particles(:,p,i-1),Q);
+                particles(:,p,i) = Lorenz4DP(particles(:,p,i-1),Q,Param_F);
             end
         
             %% Clustering
@@ -547,7 +547,7 @@ for mc = 1:numMC
         for i = 2:numStep
             %% Prediction
             for p = 1:numParticles
-                particles(:,p,i) = Lorenz4DP(Param_F,particles(:,p,i-1),Q);
+                particles(:,p,i) = Lorenz4DP(particles(:,p,i-1),Q,Param_F);
             end
         
             %% Clustering
@@ -662,7 +662,7 @@ for mc = 1:numMC
         for i = 2:numStep
             %% Prediction
             for p = 1:numParticles
-                AKKF.X_P(:,p,i) = Lorenz4DP(Param_F,AKKF.X_P_proposal(:,p,i-1),Q);
+                AKKF.X_P(:,p,i) = Lorenz4DP(AKKF.X_P_proposal(:,p,i-1),Q,Param_F);
             end
     
             [AKKF] = AKKF_predict(AKKF, i);
