@@ -13,12 +13,12 @@ animation_view = 0;         % 1: show pdf animation / 0: no pdf animation
 recordVid_view = 0;         % 1: record pdf animation / 0: no record
 comparison_PGM_DS = 1;      % 1: compare with PGM_DS  / 0: no comparison
 comparison_PGM_DU = 1;      % 1: compare with PGM_DU  / 0: no comparison
-comparison_PGM1 = 0;        % 1: compare with PGM1  / 0: no comparison
-comparison_PGM1_UT = 0;     % 1: compare with PGM1_UT  / 0: no comparison
-comparison_AKKF = 0;        % 1: compare with AKKF / 0: no comparison
+comparison_PGM1 = 1;        % 1: compare with PGM1  / 0: no comparison
+comparison_PGM1_UT = 1;     % 1: compare with PGM1_UT  / 0: no comparison
+comparison_AKKF = 1;        % 1: compare with AKKF / 0: no comparison
 comparison_EnKF = 0;        % 1: compare with EnKF / 0: no comparison
 comparison_EKF = 0;         % 1: compare with EKF / 0: no comparison
-comparison_UKF = 0;         % 1: compare with UKF / 0: no comparison
+comparison_UKF = 1;         % 1: compare with UKF / 0: no comparison
 comparison_SIR = 1;         % 1: compare with SIR / 0: no comparison
 
 numParticles = 100; % 100
@@ -26,7 +26,7 @@ numEnsembles = numParticles;
 numMixturetemp = 10;
 numMC = 1;
 
-rng(42); % 42 22
+rng(22); % 42 22
 
 %% Define a Scenario
 % Time
