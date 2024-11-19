@@ -2,8 +2,7 @@
 
 ## 1. Software Introduction
 
-These are DBSCAN-based particle Gaussian mixture (PGM) filters:
-There are two algorithms in this repository: PGM-DS and PGM-DU where DU utilised unscented transform (UT) in the updated step just as like as UKF.
+This is a repository of DBSCAN-based particle Gaussian mixture (PGM) filters: PGM-DS and PGM-DU where DU utilised unscented transform (UT) in the updated step just as like as UKF.
 
 Detail of the algorithm can be found from following paper:
 Paper soon be updated and the paper is based on Beta 0.5.
@@ -32,3 +31,4 @@ Just run with MATLAB! :)
 * 16th Nov 2024 Beta 0.6: Minor function modification + Blid tryciclist example added
 * 17th Nov 2024 Beta 0.7: Updated functions
 * 18th Nov 2024 Beta 0.8: Updated functions
+* 19th Nov 2024 Beta 0.9: Minor modifications

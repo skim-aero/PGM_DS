@@ -1,4 +1,4 @@
-function newParticle_state = resample_eff(w,oldParticle_state,threshold)
+function [newParticle_state,w] = resample_eff(w,oldParticle_state,threshold)
     N = length(w);
 
     % Compute effective sample size
@@ -13,6 +13,7 @@ function newParticle_state = resample_eff(w,oldParticle_state,threshold)
         newParticle_state = oldParticle_state;
     else
         newParticle_state = multinomial_resample(w,oldParticle_state);
+        w = ones(1,N)/N;  % reset weights after resampling
     end
 end
 

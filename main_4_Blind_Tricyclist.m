@@ -4,16 +4,16 @@
 clc; clear; close all;
 addpath(genpath('functions'));
 
-warning('of','all')
+warning('off','all')
 warning
 
 %% Simulation settings
 figure_view = 1;
-comparison_PGM_DS = 0;      % 1: compare with PGM_DS  / 0: no comparison
-comparison_PGM_DU = 0;      % 1: compare with PGM_DU  / 0: no comparison
-comparison_PGM1 = 0;        % 1: compare with PGM1  / 0: no comparison
-comparison_PGM1_UT = 0;     % 1: compare with PGM1_UT  / 0: no comparison
-comparison_AKKF = 0;        % 1: compare with AKKF / 0: no comparison
+comparison_PGM_DS = 1;      % 1: compare with PGM_DS  / 0: no comparison
+comparison_PGM_DU = 1;      % 1: compare with PGM_DU  / 0: no comparison
+comparison_PGM1 = 1;        % 1: compare with PGM1  / 0: no comparison
+comparison_PGM1_UT = 1;     % 1: compare with PGM1_UT  / 0: no comparison
+comparison_AKKF = 1;        % 1: compare with AKKF / 0: no comparison
 comparison_EnKF = 1;        % 1: compare with EnKF / 0: no comparison
 comparison_EKF = 1;         % 1: compare with EKF / 0: no comparison
 comparison_UKF = 1;         % 1: compare with UKF / 0: no comparison
@@ -82,8 +82,6 @@ elpsdtime = zeros(9,numMC);
 cmeanall = zeros(4,n,numMixturetemp,numStep,numMC);
 ccovarall = zeros(4,n,n,numMixturetemp,numStep,numMC);
 cweightall = zeros(4,numMixturetemp,numStep,numMC);
-
-looptic = tic;
 
 % parpool(4) % Limit the workers to half of the CPU due to memory...
 % parfevalOnAll(@warning,0,'off','all'); % Temporary error off
@@ -1073,7 +1071,6 @@ for mc = 1:numMC
     ccovarall(:,:,:,:,:,mc) = ccovarmc;
     cweightall(:,:,:,mc) = cweightmc;
 end
-looptoc = toc(looptic);
 
 %% Evaluations
 tlim = 141;

@@ -99,8 +99,6 @@ cmeanall = zeros(4,n,numMixturetemp,numStep,numMC);
 ccovarall = zeros(4,n,n,numMixturetemp,numStep,numMC);
 cweightall = zeros(4,numMixturetemp,numStep,numMC);
 
-looptic = tic;
-
 %% Monte Carlo simulation
 % parfevalOnAll(@warning,0,'off','all'); % Temporary error off
 for mc = 1:numMC 
@@ -1187,7 +1185,6 @@ for mc = 1:numMC
     ccovarall(:,:,:,:,:,mc) = ccovarmc;
     cweightall(:,:,:,mc) = cweightmc;
 end
-looptoc = toc(looptic);
 
 %% Evaluations
 % Root means squared error (RMSE)

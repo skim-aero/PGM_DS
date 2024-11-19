@@ -13,8 +13,8 @@ comparison_PGM_DS = 1;      % 1: compare with PGM_DS  / 0: no comparison
 comparison_PGM_DU = 1;      % 1: compare with PGM_DU  / 0: no comparison
 comparison_PGM1 = 1;        % 1: compare with PGM1  / 0: no comparison
 comparison_PGM1_UT = 1;     % 1: compare with PGM1_UT  / 0: no comparison
-comparison_AKKF = 0;        % 1: compare with AKKF / 0: no comparison
-comparison_EnKF = 0;        % 1: compare with EnKF / 0: no comparison
+comparison_AKKF = 1;        % 1: compare with AKKF / 0: no comparison
+comparison_EnKF = 1;        % 1: compare with EnKF / 0: no comparison
 comparison_EKF = 0;         % 1: compare with EKF / 0: no comparison
 comparison_UKF = 1;         % 1: compare with UKF / 0: no comparison
 comparison_SIR = 1;         % 1: compare with SIR / 0: no comparison
@@ -86,8 +86,6 @@ elpsdtime = zeros(9,numMC);
 cmeanall = zeros(4,n,numMixturetemp,numStep,numMC);
 ccovarall = zeros(4,n,n,numMixturetemp,numStep,numMC);
 cweightall = zeros(4,numMixturetemp,numStep,numMC);
-
-looptic = tic;
 
 %% Monte Carlo simulation
 for mc = 1:numMC 
@@ -849,7 +847,6 @@ for mc = 1:numMC
     ccovarall(:,:,:,:,:,mc) = ccovarmc;
     cweightall(:,:,:,mc) = cweightmc;
 end
-looptoc = toc(looptic);
 
 %% Evaluations
 % Root means squared error (RMSE)
@@ -879,7 +876,7 @@ plot(t,rmse(2,:),'g','DisplayName', 'PGM-DU')
 plot(t,rmse(3,:),'Color','#0072BD','DisplayName', 'PGM1')
 plot(t,rmse(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
 plot(t,rmse(5,:),'m','DisplayName', 'AKKF')
-% plot(t,rmse(6,:),'c','DisplayName', 'EnKF')
+plot(t,rmse(6,:),'c','DisplayName', 'EnKF')
 % plot(t,rmse(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
 plot(t,rmse(8,:),'Color','#4DBEEE','DisplayName', 'UKF')
 plot(t,rmse(9,:),'Color','#77AC30','DisplayName', 'SIR')
@@ -908,7 +905,7 @@ plot(t,chinorm(2,:),'g','DisplayName', 'PGM-DU')
 plot(t,chinorm(3,:),'Color','#0072BD','DisplayName', 'PGM1')
 plot(t,chinorm(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
 plot(t,chinorm(5,:),'m','DisplayName', 'AKKF')
-% plot(t,chinorm(6,:),'c','DisplayName', 'EnKF')
+plot(t,chinorm(6,:),'c','DisplayName', 'EnKF')
 % plot(t,chinorm(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
 plot(t,chinorm(8,:),'Color','#4DBEEE','DisplayName', 'UKF')
 plot(t,chinorm(9,:),'Color','#77AC30','DisplayName', 'SIR')
@@ -948,7 +945,7 @@ plot(t,chifrac(2,:),'g','DisplayName', 'PGM-DU')
 plot(t,chifrac(3,:),'Color','#0072BD','DisplayName', 'PGM1')
 plot(t,chifrac(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
 plot(t,chifrac(5,:),'m','DisplayName', 'AKKF')
-% plot(t,chifrac(6,:),'c','DisplayName', 'EnKF')
+plot(t,chifrac(6,:),'c','DisplayName', 'EnKF')
 % plot(t,chifrac(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
 plot(t,chifrac(8,:),'Color','#4DBEEE','DisplayName', 'UKF')
 plot(t,chifrac(9,:),'Color','#77AC30','DisplayName', 'SIR')

@@ -10,11 +10,11 @@ function [estState,particles,weights] = ...
         if linear
             for p = 1:numParticles
                 % Prediction step
-                particles(:,p,i) = F*particles(:,p,i)+sqrt(Q)*randn(n);
+                particles(:,p,i) = F*particles(:,p,i-1)+sqrt(Q)*randn(n);
                 
                 % Update step
                 residual = meas(:,i)-H*particles(:,p,i)+sqrt(R)*randn(nm);
-                weights(p,i) = 1/sqrt(norm(2*pi*R))*exp(-1/2*residual'/R*(residual));
+                weights(p,i) = weights(p,i-1)*1/sqrt(norm(2*pi*R))*exp(-1/2*residual'/R*(residual));
             end
         else
             if interm
@@ -25,7 +25,7 @@ function [estState,particles,weights] = ...
                     % Update step
                     if rem(i,20) == 0
                         residual = meas(:,i)-funmeas(particles(:,p,i),0);
-                        weights(p,i) = 1/sqrt(norm(2*pi*R))*exp(-1/2*residual'/R*(residual));
+                        weights(p,i) = weights(p,i-1)*1/sqrt(norm(2*pi*R))*exp(-1/2*residual'/R*(residual));
                     else
                         weights(p,i) = 1/numParticles;
                     end
@@ -37,15 +37,14 @@ function [estState,particles,weights] = ...
                     
                     % Update step
                     residual = meas(:,i)-funmeas(particles(:,p,i),sqrt(R)*randn(nm));
-                    weights(p,i) = 1/sqrt(norm(2*pi*R))*exp(-1/2*residual'/R*(residual));
+                    weights(p,i) = weights(p,i-1)*1/sqrt(norm(2*pi*R))*exp(-1/2*residual'/R*(residual));
                 end
             end
         end
         weights(:,i) = weights(:,i)/sum(weights(:,i));  % normalisation
         
         % Resampling
-        particles(:,:,i) = resample_eff(weights(:,i),particles(:,:,i),numEffparticles);
-        weights(:,i) = ones(1,numParticles)/numParticles;  % reset weights after resampling
+        [particles(:,:,i),weights(:,i)] = resample_eff(weights(:,i),particles(:,:,i),numEffparticles);
         
         estState(:,i) = mean(particles(:,:,i),2);
     end

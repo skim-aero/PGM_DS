@@ -96,8 +96,6 @@ cmeanall = zeros(4,n,numMixturetemp,numStep,numMC);
 ccovarall = zeros(4,n,n,numMixturetemp,numStep,numMC);
 cweightall = zeros(4,numMixturetemp,numStep,numMC);
 
-looptic = tic;
-
 % parpool(4) % Limit the workers to half of the CPU due to memory...
 % parfevalOnAll(@warning,0,'off','all'); % Temporary error off
 %% Monte Carlo simulation
