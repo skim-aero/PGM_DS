@@ -1,38 +1,38 @@
 function [estState,x,P] = ...
          EKF(numStep,n,nm,meas,estState,x,P,...
-             Q,R,F,H,JF,JH,G,funsys,funmeas,Flinear,Hlinear,interm)
+             Q,R,F,H,JF,JH,G,funsys,funmeas,interm)
         % EKF but if Flinear and Hlinear are both true, same as KF
 
     % Main loop
     for i = 2:numStep
         % Prediction step
-        if Flinear
+        if isempty(funsys) && isempty(JF)
             x = F*x;
+        elseif ~isempty(funsys) && isempty(JF)
+            x = funsys(x,0,i-1,8);
+        elseif ~isempty(funsys) && ~isempty(JF)
+            F = JF(x);
+            x = funsys(x,0,i-1,8);
         else
-            if ~isempty(funsys)
-                F = JF(x);
-                x = funsys(x,0,i-1);
-            else
-                F = JF(x);
-                x = F*x;
-            end
+            F = JF(x);
+            x = F*x;
         end
 
         P = F*P*F'+G*Q*G';
 
         % Update step
-        if interm
-            if rem(i,20) == 0
-                if Hlinear
+        if ~isempty(interm)
+            if rem(i,interm) == 0
+                if isempty(funmeas) && isempty(JH)
                     residual = meas(:,i)-H*x;
+                elseif ~isempty(funmeas) && isempty(JH)
+                    residual = meas(:,i)-funmeas(x,0);
+                elseif ~isempty(funmeas) && ~isempty(JH)
+                    H = JH(x);
+                    residual = meas(:,i)-funmeas(x,0);
                 else
-                    if ~isempty(funmeas)
-                        H = JH(x);
-                        residual = meas(:,i)-funmeas(x,0);
-                    else
-                        H = JH(x);
-                        residual = meas(:,i)-H*x;
-                    end
+                    H = JH(x);
+                    residual = meas(:,i)-H*x;
                 end
 
                 K = P*H'/(H*P*H'+R*eye(nm));   
@@ -40,16 +40,16 @@ function [estState,x,P] = ...
                 P = (eye(n)-K*H)*P;  
             end
         else
-            if Hlinear
+            if isempty(funmeas) && isempty(JH)
                 residual = meas(:,i)-H*x;
+            elseif ~isempty(funmeas) && isempty(JH)
+                residual = meas(:,i)-funmeas(x,0);
+            elseif ~isempty(funmeas) && ~isempty(JH)
+                H = JH(x);
+                residual = meas(:,i)-funmeas(x,0);
             else
-                if ~isempty(funmeas)
-                    H = JH(x);
-                    residual = meas(:,i)-funmeas(x,0);
-                else
-                    H = JH(x);
-                    residual = meas(:,i)-H*x;
-                end
+                H = JH(x);
+                residual = meas(:,i)-H*x;
             end
 
             K = P*H'/(H*P*H'+R*eye(nm));   

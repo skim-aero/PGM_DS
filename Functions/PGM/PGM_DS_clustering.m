@@ -25,7 +25,7 @@ function [particle_clust,particle_mean,particle_var,...
     likelih = zeros(numMixture,1);
 
     for clst = 1:numMixture
-        leng = length(particle_clust(1,idx==clst,i));
+        leng = length(idx(idx == clst));
         cweight(clst) = leng/numParticles;
 
         for j = 1:n
@@ -78,7 +78,7 @@ function [particle_clust,particle_mean,particle_var,...
             particle_clust(:,:,i) = particles(:,idx1,i);
 
             for clst = 1:numMixture
-                leng = length(particle_clust(:,idx==clst,i));
+                leng = length(idx(idx == clst));
                 cweight(clst) = leng/numParticles;
 
                 for j = 1:n

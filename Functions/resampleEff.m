@@ -1,4 +1,4 @@
-function [newParticle_state,w] = resample_eff(w,oldParticle_state,threshold)
+function [newParticle_state,w] = resampleEff(w,oldParticle_state,threshold)
     N = length(w);
 
     % Compute effective sample size

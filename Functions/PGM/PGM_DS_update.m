@@ -24,7 +24,14 @@ function [particles,estState,temp_particle_var,...
                 Pxz = zeros(n,nm);
                 Pzz = zeros(nm,nm);
 
-                sqrt_P = chol((n+lambda)*particle_var(:,:,clst,i), 'lower'); % Square root of scaled covariance
+                try
+                    sqrt_P = chol((n+lambda)*particle_var(:,:,clst,i),'lower');         % square root of scaled covariance
+                catch
+                    particle_var(:,:,clst,i) = nearestSPD(particle_var(:,:,clst,i))+1e-6*eye(n);   % if Cholesky fails, add regularisation and retry
+                    sqrt_P = chol((n+lambda)*particle_var(:,:,clst,i),'lower');         % square root of scaled covariance
+                end
+
+                % sqrt_P = chol((n+lambda)*particle_var(:,:,clst,i),'lower'); % Square root of scaled covariance
                 xs(:,1,clst) = particle_mean(:,clst,i);
 
                 % Sigma points
@@ -69,7 +76,7 @@ function [particles,estState,temp_particle_var,...
             leng_old = 0;
 
             for clst = 1:numMixture
-                leng = length(particle_clust(1,idx==clst,i));
+                leng = length(idx(idx == clst));
 
                 Pxz = zeros(n,nm);
                 Pzz = zeros(nm,nm);
@@ -129,12 +136,7 @@ function [particles,estState,temp_particle_var,...
             estState(:,i) = estState(:,i)+cweight(clst)*particle_mean(:,clst,i);
 
             % Covariance correction tricks
-            ccovar(:,:,clst) = (ccovar(:,:,clst)+ccovar(:,:,clst).')/2;
-
-            % Check and correct eigenvalues if necessary
-            while any(eig(ccovar(:,:,clst)) <= 1e-8)
-                ccovar(:,:,clst) = ccovar(:,:,clst)+0.1*eye(n);
-            end
+            ccovar(:,:,clst) = nearestSPD(ccovar(:,:,clst))+1e-6*eye(n);
         end
 
         % Sample new particles

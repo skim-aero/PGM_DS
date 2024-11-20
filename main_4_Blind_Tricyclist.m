@@ -11,9 +11,9 @@ warning
 figure_view = 1;
 comparison_PGM_DS = 1;      % 1: compare with PGM_DS  / 0: no comparison
 comparison_PGM_DU = 1;      % 1: compare with PGM_DU  / 0: no comparison
-comparison_PGM1 = 1;        % 1: compare with PGM1  / 0: no comparison
-comparison_PGM1_UT = 1;     % 1: compare with PGM1_UT  / 0: no comparison
-comparison_AKKF = 1;        % 1: compare with AKKF / 0: no comparison
+comparison_PGM1 = 0;        % 1: compare with PGM1  / 0: no comparison
+comparison_PGM1_UT = 0;     % 1: compare with PGM1_UT  / 0: no comparison
+comparison_AKKF = 0;        % 1: compare with AKKF / 0: no comparison
 comparison_EnKF = 1;        % 1: compare with EnKF / 0: no comparison
 comparison_EKF = 1;         % 1: compare with EKF / 0: no comparison
 comparison_UKF = 1;         % 1: compare with UKF / 0: no comparison
@@ -26,9 +26,9 @@ numParticlSIR = 10000;
 numMixturetemp = 1000;
 numMC = 1;
 
-rng(5);
+rng(42);
 
-%% Define a Scenario
+%% Define a scenario
 load blindtricyc03_example_new      % clear and load only new data
 
 % Parameters
@@ -36,7 +36,7 @@ numStep = size(t,1);                % retrieve number of samples
 numMGR = size(Xvec,1);              % retrieve number of merry-go-rounds
 nw = size(Q,1);                     % retrieve number of process noise elements
 
-n = 3 + 2*numMGR;                   % compute number of states
+n = 3+2*numMGR;                   % compute number of states
 nm = numMGR;                        % size of the mearuements size(R,1)
 
 wbar = zeros(nw,1);                 % assign a priori process noise vector
@@ -83,11 +83,12 @@ cmeanall = zeros(4,n,numMixturetemp,numStep,numMC);
 ccovarall = zeros(4,n,n,numMixturetemp,numStep,numMC);
 cweightall = zeros(4,numMixturetemp,numStep,numMC);
 
+%% Monte Carlo simulation
 % parpool(4) % Limit the workers to half of the CPU due to memory...
 % parfevalOnAll(@warning,0,'off','all'); % Temporary error off
-%% Monte Carlo simulation
+% parfor mc = 1:numMC
 for mc = 1:numMC 
-    disptemp = ['Monete Carlo iteration: ', num2str(mc)];
+    disptemp = ['Monete Carlo iteration: ',num2str(mc)];
     disp(disptemp)
 
     % Generate true states
@@ -96,7 +97,6 @@ for mc = 1:numMC
                         Xvec,Yvec,rhovec,sigmavec,...
                         imykflaghist,P0,Q,...
                         iflagobsmat,[]);
-
     % For evaluation
     error = zeros(9,n,numStep);
     poserror = zeros(9,numStep);
@@ -113,7 +113,7 @@ for mc = 1:numMC
         hold on; legend;
         grid
         axis('equal')
-        plot(trueState(:,1),trueState(:,2),'--ok','DisplayName', 'True')
+        plot(trueState(:,1),trueState(:,2),'--ok','DisplayName','True')
         xlabel('East position (m)')
         ylabel('North position (m)')
 
@@ -129,7 +129,7 @@ for mc = 1:numMC
         %% Filter parameters
         numMixture_max = n+1;   % number of Gaussian mixtures
         minpts = n+1;           % minimum number of neighbors for a core point
-        epsilon = 7;            % distance to determine if a point is a core point 50
+        epsilon = 3;            % distance to determine if a point is a core point 50
         
         %% Initialisation
         particles = zeros(n,numParticles,numStep);
@@ -141,7 +141,7 @@ for mc = 1:numMC
         temp_particle_var = zeros(n,n,numStep);
     
         %% First time step
-        particles(:,:,1) = initial.*ones(n,numParticles)+sqrt(P0*2)*randn(n,numParticles);
+        particles(:,:,1) = initial.*ones(n,numParticles)+sqrt(P0)*randn(n,numParticles);
         
         for p = 1:numParticles
             [particle_meas(:,p,1),~,~] = blindtricyc03_haltfunct(particles(:,p,1),0,1,br,...
@@ -178,7 +178,7 @@ for mc = 1:numMC
                     blindtricyc03_ffunct(particles(:,p,i-1),wbar,i-2,0,...
                     ukhist,t,bw);
                 
-                particles(:,p,i) = particles(:,p,i)+(G*sqrt(Q)*G')*randn(n,1);
+                particles(:,p,i) = particles(:,p,i)+G*sqrtm(Q)*randn(nw,1);
             end
         
             %% Clustering
@@ -187,7 +187,7 @@ for mc = 1:numMC
                            PGM_DS_clustering(i,n,numParticles,...
                                           particles,particle_mean,particle_var,...
                                           epsilon,minpts,numMixture_max,1,0);
-    
+
             %% Merging
             [particles,particle_clust,particle_mean,particle_var,...
                 numMixture,cweight,idx] = ...
@@ -196,34 +196,22 @@ for mc = 1:numMC
                                         particle_mean,particle_var);
     
             %% Update
-            if all(meas(i,:)'== 0)
-                [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
-                               PGM_DS_update(i,n,nm,numStep,numParticles,...
-                                           numMixture,numMixture_max,...
-                                           0,cweight,idx,meas',likelih,R,...
-                                           particles,particle_clust,...
-                                           particle_meas,particle_mean,...
-                                           particle_var,estState,...
-                                           temp_particle_var,0,0,0,0,0,0);
-            else
-                for p = 1:numParticles
-                    [particle_meas(:,p,i),~,~] = blindtricyc03_haltfunct(particles(:,p,i),i-1,1,br,...
-                                Xvec,Yvec,rhovec,imykflaghist,meas);
-                    particle_meas(:,p,i) = particle_meas(:,p,i) + sqrt(R)*randn(nm,1);
-                end 
-        
-                [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
-                               PGM_DS_update(i,n,nm,numStep,numParticles,...
-                                           numMixture,numMixture_max,...
-                                           1,cweight,idx,meas',likelih,R,...
-                                           particles,particle_clust,...
-                                           particle_meas,particle_mean,...
-                                           particle_var,estState,...
-                                           temp_particle_var,0,0,0,0,0,0);
-            end
+            for p = 1:numParticles
+                [particle_meas(:,p,i),~,~] = blindtricyc03_haltfunct(particles(:,p,i),i-1,1,br,...
+                            Xvec,Yvec,rhovec,imykflaghist,meas);
+                particle_meas(:,p,i) = particle_meas(:,p,i)+sqrt(R)*randn(nm,1);
+            end 
     
+            [particles,estState,temp_particle_var,...
+             cmean,ccovar,cweight] = ...
+                           PGM_DS_update(i,n,nm,numStep,numParticles,...
+                                       numMixture,numMixture_max,...
+                                       1,cweight,idx,meas',likelih,R,...
+                                       particles,particle_clust,...
+                                       particle_meas,particle_mean,...
+                                       particle_var,estState,...
+                                       temp_particle_var,0,0,0,0,0,0);
+
             %% For evaluation
             error(1,:,i) = abs(estState(:,i)-trueState(i,:)');
             poserror(1,i) = sqrt(error(1,1,i)^2+error(1,2,i)^2);
@@ -240,9 +228,9 @@ for mc = 1:numMC
         
         if figure_view
             figure(fig2); 
-            plot(estState(1,:),estState(2,:),'r','DisplayName', 'PGM-DS')
+            plot(estState(1,:),estState(2,:),'r','DisplayName','PGM-DS')
             figure(fig3); 
-            plot(t,poserror(1,:),'r','DisplayName', 'PGM-DS')
+            plot(t,poserror(1,:),'r','DisplayName','PGM-DS')
         end
     end
 
@@ -251,7 +239,7 @@ for mc = 1:numMC
         %% Filter parameters
         numMixture_max = n+1;   % number of Gaussian mixtures
         minpts = n+1;           % minimum number of neighbors for a core point
-        epsilon = 7;            % distance to determine if a point is a core point 50
+        epsilon = 3;            % distance to determine if a point is a core point 50
         
         %% Initialisation
         particles = zeros(n,numParticles,numStep);
@@ -266,7 +254,7 @@ for mc = 1:numMC
         temp_particle_var = zeros(n,n,numStep);
     
         %% First time step
-        particles(:,:,1) = initial.*ones(n,numParticles)+sqrt(P0*2)*randn(n,numParticles);
+        particles(:,:,1) = initial.*ones(n,numParticles)+sqrt(P0)*randn(n,numParticles);
             
         for p = 1:numParticles
             [particle_meas(:,p,1),~,~] = blindtricyc03_haltfunct(particles(:,p,1),0,1,br,...
@@ -311,7 +299,7 @@ for mc = 1:numMC
                     blindtricyc03_ffunct(particles(:,p,i-1),wbar,i-2,0,...
                     ukhist,t,bw);
                             
-                particles(:,p,i) = particles(:,p,i)+(G*sqrt(Q)*G')*randn(n,1);
+                particles(:,p,i) = particles(:,p,i)+G*sqrtm(Q)*randn(nw,1);
             end
         
             %% Clustering
@@ -332,30 +320,17 @@ for mc = 1:numMC
             funmeas = @(x,v) blindtricyc03_haltfunct(x,i-1,1,br,...
                             Xvec,Yvec,rhovec,imykflaghist,meas);
     
-            if all(meas(i,:)'== 0)
-                [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
-                               PGM_DS_update(i,n,nm,numStep,numParticles,...
-                                           numMixture,numMixture_max,...
-                                           0,cweight,idx,meas',likelih,R,...
-                                           particles,particle_clust,...
-                                           particle_meas,particle_mean,...
-                                           particle_var,estState,...
-                                           temp_particle_var,...
-                                           1,numSigma,lambda,wc,wm,funmeas);
-            else
-                [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
-                               PGM_DS_update(i,n,nm,numStep,numParticles,...
-                                           numMixture,numMixture_max,...
-                                           1,cweight,idx,meas',likelih,R,...
-                                           particles,particle_clust,...
-                                           particle_meas,particle_mean,...
-                                           particle_var,estState,...
-                                           temp_particle_var,...
-                                           1,numSigma,lambda,wc,wm,funmeas);
-            end
-    
+            [particles,estState,temp_particle_var,...
+             cmean,ccovar,cweight] = ...
+                           PGM_DS_update(i,n,nm,numStep,numParticles,...
+                                       numMixture,numMixture_max,...
+                                       1,cweight,idx,meas',likelih,R,...
+                                       particles,particle_clust,...
+                                       particle_meas,particle_mean,...
+                                       particle_var,estState,...
+                                       temp_particle_var,...
+                                       1,numSigma,lambda,wc,wm,funmeas);
+
             %% For evaluation
             error(2,:,i) = abs(estState(:,i)-trueState(i,:)');
             poserror(2,i) = sqrt(error(2,1,i)^2+error(2,2,i)^2);
@@ -372,9 +347,9 @@ for mc = 1:numMC
         
         if figure_view
             figure(fig2); 
-            plot(estState(1,:),estState(2,:),'g','DisplayName', 'PGM-DU')
+            plot(estState(1,:),estState(2,:),'g','DisplayName','PGM-DU')
             figure(fig3); 
-            plot(t,poserror(2,:),'g','DisplayName', 'PGM-DU')
+            plot(t,poserror(2,:),'g','DisplayName','PGM-DU')
         end
     end
 
@@ -393,7 +368,7 @@ for mc = 1:numMC
         temp_particle_var = zeros(n,n,numStep);
         
         %% First time step
-        particles(:,:,1) = initial.*ones(n,numParticles)+sqrt(P0*2)*randn(n,numParticles);
+        particles(:,:,1) = initial.*ones(n,numParticles)+sqrt(P0)*randn(n,numParticles);
         
         for p = 1:numParticles
             [particle_meas(:,p,1),~,~] = blindtricyc03_haltfunct(particles(:,p,1),0,1,br,...
@@ -430,7 +405,7 @@ for mc = 1:numMC
                     blindtricyc03_ffunct(particles(:,p,i-1),wbar,i-2,0,...
                     ukhist,t,bw);
     
-                particles(:,p,i) = particles(:,p,i)+(G*sqrt(Q)*G')*randn(n,1);
+                particles(:,p,i) = particles(:,p,i)+G*sqrtm(Q)*randn(nw,1);
             end
         
             %% Clustering
@@ -448,34 +423,22 @@ for mc = 1:numMC
                                         particle_mean,particle_var);
     
             %% Update
-            if all(meas(i,:)'== 0)
-                [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
-                               PGM_DS_update(i,n,nm,numStep,numParticles,...
-                                           numMixture,numMixture_max,...
-                                           0,cweight,idx,meas',likelih,R,...
-                                           particles,particle_clust,...
-                                           particle_meas,particle_mean,...
-                                           particle_var,estState,...
-                                           temp_particle_var,0,0,0,0,0,0);
-            else
-                for p = 1:numParticles
-                    [particle_meas(:,p,i),~,~] = blindtricyc03_haltfunct(particles(:,p,i),i-1,1,br,...
-                                Xvec,Yvec,rhovec,imykflaghist,meas);
-                    particle_meas(:,p,i) = particle_meas(:,p,i) + sqrt(R)*randn(nm,1);
-                end 
-        
-                [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
-                               PGM_DS_update(i,n,nm,numStep,numParticles,...
-                                           numMixture,numMixture_max,...
-                                           1,cweight,idx,meas',likelih,R,...
-                                           particles,particle_clust,...
-                                           particle_meas,particle_mean,...
-                                           particle_var,estState,...
-                                           temp_particle_var,0,0,0,0,0,0);
-            end
+            for p = 1:numParticles
+                [particle_meas(:,p,i),~,~] = blindtricyc03_haltfunct(particles(:,p,i),i-1,1,br,...
+                            Xvec,Yvec,rhovec,imykflaghist,meas);
+                particle_meas(:,p,i) = particle_meas(:,p,i)+sqrt(R)*randn(nm,1);
+            end 
     
+            [particles,estState,temp_particle_var,...
+             cmean,ccovar,cweight] = ...
+                           PGM_DS_update(i,n,nm,numStep,numParticles,...
+                                       numMixture,numMixture_max,...
+                                       1,cweight,idx,meas',likelih,R,...
+                                       particles,particle_clust,...
+                                       particle_meas,particle_mean,...
+                                       particle_var,estState,...
+                                       temp_particle_var,0,0,0,0,0,0);
+
             %% For evaluation
             error(3,:,i) = abs(estState(:,i)-trueState(i,:)');
             poserror(3,i) = sqrt(error(3,1,i)^2+error(3,2,i)^2);
@@ -492,9 +455,9 @@ for mc = 1:numMC
     
         if figure_view
             figure(fig2); 
-            plot(estState(1,:),estState(2,:),'Color','#0072BD','DisplayName', 'PGM1')
+            plot(estState(1,:),estState(2,:),'Color','#0072BD','DisplayName','PGM1')
             figure(fig3); 
-            plot(t,poserror(3,:),'Color','#0072BD','DisplayName', 'PGM1')
+            plot(t,poserror(3,:),'Color','#0072BD','DisplayName','PGM1')
         end
     end
 
@@ -516,7 +479,7 @@ for mc = 1:numMC
         temp_particle_var = zeros(n,n,numStep);
     
         %% First time step
-        particles(:,:,1) = initial.*ones(n,numParticles)+sqrt(P0*2)*randn(n,numParticles);
+        particles(:,:,1) = initial.*ones(n,numParticles)+sqrt(P0)*randn(n,numParticles);
             
         for p = 1:numParticles
             [particle_meas(:,p,1),~,~] = blindtricyc03_haltfunct(particles(:,p,1),0,1,br,...
@@ -561,7 +524,7 @@ for mc = 1:numMC
                     blindtricyc03_ffunct(particles(:,p,i-1),wbar,i-2,0,...
                     ukhist,t,bw);
     
-                particles(:,p,i) = particles(:,p,i)+(G*sqrt(Q)*G')*randn(n,1);
+                particles(:,p,i) = particles(:,p,i)+G*sqrtm(Q)*randn(nw,1);
             end
         
             %% Clustering
@@ -582,30 +545,17 @@ for mc = 1:numMC
             funmeas = @(x,v) blindtricyc03_haltfunct(x,i-1,1,br,...
                             Xvec,Yvec,rhovec,imykflaghist,meas);
     
-            if all(meas(i,:)'== 0)
-                [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
-                               PGM_DS_update(i,n,nm,numStep,numParticles,...
-                                           numMixture,numMixture_max,...
-                                           0,cweight,idx,meas',likelih,R,...
-                                           particles,particle_clust,...
-                                           particle_meas,particle_mean,...
-                                           particle_var,estState,...
-                                           temp_particle_var,...
-                                           1,numSigma,lambda,wc,wm,funmeas);
-            else
-                [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
-                               PGM_DS_update(i,n,nm,numStep,numParticles,...
-                                           numMixture,numMixture_max,...
-                                           1,cweight,idx,meas',likelih,R,...
-                                           particles,particle_clust,...
-                                           particle_meas,particle_mean,...
-                                           particle_var,estState,...
-                                           temp_particle_var,...
-                                           1,numSigma,lambda,wc,wm,funmeas);
-            end
-    
+            [particles,estState,temp_particle_var,...
+             cmean,ccovar,cweight] = ...
+                           PGM_DS_update(i,n,nm,numStep,numParticles,...
+                                       numMixture,numMixture_max,...
+                                       1,cweight,idx,meas',likelih,R,...
+                                       particles,particle_clust,...
+                                       particle_meas,particle_mean,...
+                                       particle_var,estState,...
+                                       temp_particle_var,...
+                                       1,numSigma,lambda,wc,wm,funmeas);
+
             %% For evaluation
             error(4,:,i) = abs(estState(:,i)-trueState(i,:)');
             poserror(4,i) = sqrt(error(4,1,i)^2+error(4,2,i)^2);
@@ -622,9 +572,9 @@ for mc = 1:numMC
         
         if figure_view
             figure(fig2); 
-            plot(estState(1,:),estState(2,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
+            plot(estState(1,:),estState(2,:),'Color','#EDB120','DisplayName','PGM1-UT')
             figure(fig3); 
-            plot(t,poserror(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
+            plot(t,poserror(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
         end
     end
 
@@ -645,16 +595,16 @@ for mc = 1:numMC
         temp_particle_var = zeros(n,n,numStep);
       
         %% First time step
-        AKKF.X_P(:,:,1) = initial.*ones(n,numPartiAKKF)+sqrt(P0*2)*randn(n,numPartiAKKF);
+        AKKF.X_P(:,:,1) = initial.*ones(n,numPartiAKKF)+sqrt(P0)*randn(n,numPartiAKKF);
     
         % Data space
-    %     AKKF.X_P(:,:,1) = mgd(AKKF.N_P, 4, Tar.X(:,1), Sys.P0).'; % state particles
+    %     AKKF.X_P(:,:,1) = mgd(AKKF.N_P,4,Tar.X(:,1),Sys.P0).'; % state particles
         
         % Kernel space
-        AKKF.W_minus(:,1) = ones(AKKF.N_P, 1)/AKKF.N_P;
+        AKKF.W_minus(:,1) = ones(AKKF.N_P,1)/AKKF.N_P;
         AKKF.S_minus(:,:,1) = eye(AKKF.N_P)/AKKF.N_P;
         
-        AKKF.W_plus(:,1) = ones(AKKF.N_P, 1)/AKKF.N_P;
+        AKKF.W_plus(:,1) = ones(AKKF.N_P,1)/AKKF.N_P;
         AKKF.S_plus(:,:,1) = eye(AKKF.N_P)/AKKF.N_P;
         
         AKKF.X_P_proposal(:,:,1) =  AKKF.X_P(:,:,1);
@@ -684,33 +634,20 @@ for mc = 1:numMC
                     blindtricyc03_ffunct(AKKF.X_P(:,p,i-1),wbar,i-2,0,...
                     ukhist,t,bw);
     
-                AKKF.X_P(:,p,i) = AKKF.X_P(:,p,i)+(G*sqrt(Q)*G')*randn(n,1);
+                AKKF.X_P(:,p,i) = AKKF.X_P(:,p,i)+G*sqrtm(Q)*randn(nw,1);
             end
     
-            [AKKF] = AKKF_predict(AKKF, i);
+            [AKKF] = AKKF_predict(AKKF,i);
     
             %% Update
             for p = 1:numPartiAKKF
                 [AKKF.Z_P(:,p,i),~,~] = blindtricyc03_haltfunct(AKKF.X_P(:,p,i),i-1,1,br,...
                             Xvec,Yvec,rhovec,imykflaghist,meas);
-                AKKF.Z_P(:,p,i) = AKKF.Z_P(:,p,i) + sqrt(R)*randn(nm,1);
+                AKKF.Z_P(:,p,i) = AKKF.Z_P(:,p,i)+sqrt(R)*randn(nm,1);
             end 
     
-            if all(meas(i,:)'== 0)
-                AKKF.W_minus(:,i) = AKKF.W_minus(:,i-1);
-                AKKF.S_minus(:,:,i) = AKKF.S_minus(:,:,i-1);
-                
-                AKKF.W_plus(:,i) = AKKF.W_plus(:,i-1);
-                AKKF.S_plus(:,:,i) = AKKF.S_plus(:,:,i-1);
-                
-                AKKF.X_P_proposal(:,:,i) = AKKF.X_P(:,:,i);
-                
-                AKKF.X_est(:,i) = AKKF.X_P(:,:,i) * AKKF.W_plus(:,i); %state mean
-                AKKF.X_C(:,:,i) =   AKKF.X_P(:,:,i) * AKKF.S_plus(:,:,i) * AKKF.X_P(:,:,i).'; %state covariance
-            else
-                [AKKF] = AKKF_update(meas', AKKF, R, i);
-                [AKKF] = AKKF_proposal(AKKF, i);
-            end
+            [AKKF] = AKKF_update(meas',AKKF,R,i);
+            [AKKF] = AKKF_proposal(AKKF,i);
     
             estState(:,i) = mean(AKKF.X_P(:,:,i),2);
     
@@ -735,9 +672,9 @@ for mc = 1:numMC
         
         if figure_view
             figure(fig2); 
-            plot(estState(1,:),estState(2,:),'m','DisplayName', 'AKKF')
+            plot(estState(1,:),estState(2,:),'m','DisplayName','AKKF')
             figure(fig3); 
-            plot(t,poserror(5,:),'m','DisplayName', 'AKKF')
+            plot(t,poserror(5,:),'m','DisplayName','AKKF')
         end
     end
 
@@ -752,7 +689,7 @@ for mc = 1:numMC
         temp_particle_var = zeros(n,n,numStep);
         
         %% First time step  
-        ensembles(:,:,1) = initial.*ones(n,numEnsembles)+sqrt(P0*2)*randn(n,numEnsembles);
+        ensembles(:,:,1) = initial.*ones(n,numEnsembles)+sqrt(P0)*randn(n,numEnsembles);
         ensemble_var(:,:,1) = P0;
         
         estState(:,1) = mean(ensembles(:,:,1),2);
@@ -816,9 +753,9 @@ for mc = 1:numMC
     
         if figure_view
             figure(fig2); 
-            plot(estState(1,:),estState(2,:),'c','DisplayName', 'EnKF')
+            plot(estState(1,:),estState(2,:),'c','DisplayName','EnKF')
             figure(fig3); 
-            plot(t,poserror(6,:),'c','DisplayName', 'EnKF')
+            plot(t,poserror(6,:),'c','DisplayName','EnKF')
         end
     end
     
@@ -830,7 +767,7 @@ for mc = 1:numMC
     
         %% First time step
         x = initial;
-        P = P0*2;
+        P = P0;
         
         estState(:,1) = x;
         temp_particle_var(:,:,1) = P;
@@ -851,7 +788,7 @@ for mc = 1:numMC
             [y,H] = blindtricyc03_haltfunct(x,i-1,0,br,...
                             Xvec,Yvec,rhovec,imykflaghist,meas);
             K = P*H'/(R+H*P*H');
-            x = x + K*(meas(i,:)'-y);
+            x = x+K*(meas(i,:)'-y);
             P = (eye(n)-K*H)*P*(eye(n)-K*H)'+K*R*K';
             estState(:,i) = x;
         
@@ -867,7 +804,7 @@ for mc = 1:numMC
             figure(fig2); 
             plot(estState(1,:),estState(2,:),'Color','#7E2F8E','DisplayName','EKF');
             figure(fig3); 
-            plot(t,poserror(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
+            plot(t,poserror(7,:),'Color','#7E2F8E','DisplayName','EKF')
         end
     end
     
@@ -881,7 +818,7 @@ for mc = 1:numMC
         xn = zeros(n,1);
         Pn = zeros(n);
         zn = zeros(nm,1);
-        Pz = zeros(nm);
+        Pzz = zeros(nm);
         Pxz = zeros(n,nm);
         
         estState = zeros(n,numStep);
@@ -889,7 +826,7 @@ for mc = 1:numMC
     
         %% First time step
         x = initial;
-        P = P0*2;
+        P = P0;
     
         wm(1) = lambda/(n+lambda);
         wc(1) = lambda/(n+lambda)+(1-alpha^2+beta);
@@ -911,7 +848,7 @@ for mc = 1:numMC
     
         for i = 2:numStep
             %% Sigma points
-            sqrt_P = chol((n+lambda)*P, 'lower'); % Square root of scaled covariance
+            sqrt_P = chol((n+lambda)*P,'lower'); % Square root of scaled covariance
             xs(:,1,i) = x;
             for j = 1:n
                 xs(:,j+1,i) = x+sqrt_P(:,j);
@@ -922,33 +859,33 @@ for mc = 1:numMC
             for j = 1:numSigma
                 [xs(:,j,i),~,G] = blindtricyc03_ffunct(xs(:,j,i),...
                                     wbar,i-2,0,ukhist,t,bw);
-                xn = xn + wm(j)*xs(:,j,i);
+                xn = xn+wm(j)*xs(:,j,i);
             end
     
             for j = 1:numSigma
-                Pn = Pn + wc(j)*(xs(:,j,i)-xn)*(xs(:,j,i)-xn)';
+                Pn = Pn+wc(j)*(xs(:,j,i)-xn)*(xs(:,j,i)-xn)';
             end
-            Pn = Pn + G*Q*G';   
+            Pn = Pn+G*Q*G';   
             
             %% Update
             for j = 1:numSigma
                 [zs(:,j,i),~] = blindtricyc03_haltfunct(xs(:,j,i),i-1,1,br,...
                             Xvec,Yvec,rhovec,imykflaghist,meas);
-                zn = zn + wm(j)*zs(:,j,i);
+                zn = zn+wm(j)*zs(:,j,i);
             end
             
             for j = 1:numSigma
-                Pz = Pz + wc(j)*(zs(:,j,i)-zn)*(zs(:,j,i)-zn)';
+                Pzz = Pzz+wc(j)*(zs(:,j,i)-zn)*(zs(:,j,i)-zn)';
             end
-            Pz = Pz + R;
+            Pzz = Pzz+R;
         
             for j = 1:numSigma
-                Pxz = Pxz + wc(j)*(xs(:,j,i)-xn)*(zs(:,j,i)-zn)';
+                Pxz = Pxz+wc(j)*(xs(:,j,i)-xn)*(zs(:,j,i)-zn)';
             end
         
-            K = Pxz/Pz;
+            K = Pxz/Pzz;
             x = xn+K*(meas(i,:)'-zn);
-            P = Pn-K*Pz*K';
+            P = Pn-K*Pzz*K';
     
             estState(:,i) = x;
         
@@ -961,7 +898,7 @@ for mc = 1:numMC
             xn = zeros(n,1);
             Pn = zeros(n);
             zn = zeros(nm,1);
-            Pz = zeros(nm);
+            Pzz = zeros(nm);
             Pxz = zeros(n,nm);
         end
         
@@ -969,9 +906,9 @@ for mc = 1:numMC
     
         if figure_view
             figure(fig2); 
-            plot(estState(1,:),estState(2,:),'Color','#4DBEEE','DisplayName', 'UKF')
+            plot(estState(1,:),estState(2,:),'Color','#4DBEEE','DisplayName','UKF')
             figure(fig3); 
-            plot(t,poserror(8,:),'Color','#4DBEEE','DisplayName', 'UKF')
+            plot(t,poserror(8,:),'Color','#4DBEEE','DisplayName','UKF')
         end
     end
 
@@ -989,7 +926,7 @@ for mc = 1:numMC
         temp_particle_var = zeros(n,n,numStep);
     
         %% First time step
-        particles(:,:,1) = initial.*ones(n,numParticlSIR)+sqrt(P0*2)*randn(n,numParticlSIR);        
+        particles(:,:,1) = initial.*ones(n,numParticlSIR)+sqrt(P0)*randn(n,numParticlSIR);        
         particle_w(:,1) = 1/numParticlSIR*ones(numParticlSIR,1);
     
         estState(:,1) = mean(particles(:,:,1),2);
@@ -1009,30 +946,25 @@ for mc = 1:numMC
                     blindtricyc03_ffunct(particles(:,p,i-1),wbar,i-2,0,...
                     ukhist,t,bw);
     
-                particles(:,p,i) = particles(:,p,i)+(G*sqrt(Q)*G')*randn(n,1);
+                particles(:,p,i) = particles(:,p,i)+G*sqrtm(Q)*randn(nw,1);
             end
                     
-            %% Update
-            if all(meas(i,:)'== 0)
-                particle_w(:,i) = particle_w(:,i-1);
-            else
-                for p = 1:numParticlSIR
-                    [particle_meas(:,p,i),~,~] = blindtricyc03_haltfunct(particles(:,p,i),i-1,1,br,...
-                            Xvec,Yvec,rhovec,imykflaghist,meas);
-                    residual = meas(i,:)' - particle_meas(:,p,i);
-                    particle_w(p,i) = 1/sqrt(norm(2*pi*R))*exp(-1/2*residual'/R*(residual));
-                end
-    
-                %% Resample
-                if all(particle_w(:,i) == 0)
-                    particle_w(:,i) = 1/numParticlSIR;
-                end
-    
-                particle_w(:,i) = particle_w(:,i)/sum(particle_w(:,i));
-                particles(:,:,i) = resample_eff(particle_w(:,i),...
-                                        particles(:,:,i),numEffparticles);
+            for p = 1:numParticlSIR
+                [particle_meas(:,p,i),~,~] = blindtricyc03_haltfunct(particles(:,p,i),i-1,1,br,...
+                        Xvec,Yvec,rhovec,imykflaghist,meas);
+                residual = meas(i,:)'-particle_meas(:,p,i);
+                particle_w(p,i) = 1/sqrt(norm(2*pi*R))*exp(-1/2*residual'/R*(residual));
             end
-    
+
+            %% Resample
+            if all(particle_w(:,i) == 0)
+                particle_w(:,i) = 1/numParticlSIR;
+            end
+
+            particle_w(:,i) = particle_w(:,i)/sum(particle_w(:,i));
+            particles(:,:,i) = resampleEff(particle_w(:,i),...
+                                    particles(:,:,i),numEffparticles);
+
             estState(:,i) = mean(particles(:,:,i),2);
     
             %% For evaluation
@@ -1056,9 +988,9 @@ for mc = 1:numMC
     
         if figure_view
             figure(fig2); 
-            plot(estState(1,:),estState(2,:),'Color',"#77AC30",'DisplayName', 'SIR')
+            plot(estState(1,:),estState(2,:),'Color',"#77AC30",'DisplayName','SIR')
             figure(fig3); 
-            plot(t,poserror(9,:),'Color',"#77AC30",'DisplayName', 'SIR')
+            plot(t,poserror(9,:),'Color',"#77AC30",'DisplayName','SIR')
         end
     end
    
@@ -1092,20 +1024,20 @@ end
 
 % Averaged RMSE
 for fil = 1:9
-    armse(fil) = sum(rmse(fil,:))/numStep;  % PGM-UT/PGM/UKF/SIR
+    armse(fil) = sum(rmse(fil,:))/numStep;
 end
 
 % Plot RMSE
 figure; hold on; legend;
-plot(t,rmse(1,:),'r','DisplayName', 'PGM-DS')
-plot(t,rmse(2,:),'g','DisplayName', 'PGM-DU')
-plot(t,rmse(3,:),'Color','#0072BD','DisplayName', 'PGM1')
-plot(t,rmse(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
-plot(t,rmse(5,:),'m','DisplayName', 'AKKF')
-% plot(t,rmse(6,:),'c','DisplayName', 'EnKF')
-plot(t,rmse(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
-plot(t,rmse(8,:),'Color','#4DBEEE','DisplayName', 'UKF')
-plot(t,rmse(9,:),'Color','#77AC30','DisplayName', 'SIR')
+plot(t,rmse(1,:),'r','DisplayName','PGM-DS')
+plot(t,rmse(2,:),'g','DisplayName','PGM-DU')
+plot(t,rmse(3,:),'Color','#0072BD','DisplayName','PGM1')
+plot(t,rmse(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
+plot(t,rmse(5,:),'m','DisplayName','AKKF')
+% plot(t,rmse(6,:),'c','DisplayName','EnKF')
+plot(t,rmse(7,:),'Color','#7E2F8E','DisplayName','EKF')
+plot(t,rmse(8,:),'Color','#4DBEEE','DisplayName','UKF')
+plot(t,rmse(9,:),'Color','#77AC30','DisplayName','SIR')
 
 xlim([0 tlim])
 % ylim([-25 25])
@@ -1126,15 +1058,15 @@ end
 
 % Plot Chisq
 figure; hold on; legend;
-plot(t,chinorm(1,:),'r','DisplayName', 'PGM-DS')
-plot(t,chinorm(2,:),'g','DisplayName', 'PGM-DU')
-plot(t,chinorm(3,:),'Color','#0072BD','DisplayName', 'PGM1')
-plot(t,chinorm(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
-plot(t,chinorm(5,:),'m','DisplayName', 'AKKF')
-% plot(t,chinorm(6,:),'c','DisplayName', 'EnKF')
-plot(t,chinorm(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
-plot(t,chinorm(8,:),'Color','#4DBEEE','DisplayName', 'UKF')
-plot(t,chinorm(9,:),'Color','#77AC30','DisplayName', 'SIR')
+plot(t,chinorm(1,:),'r','DisplayName','PGM-DS')
+plot(t,chinorm(2,:),'g','DisplayName','PGM-DU')
+plot(t,chinorm(3,:),'Color','#0072BD','DisplayName','PGM1')
+plot(t,chinorm(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
+plot(t,chinorm(5,:),'m','DisplayName','AKKF')
+% plot(t,chinorm(6,:),'c','DisplayName','EnKF')
+plot(t,chinorm(7,:),'Color','#7E2F8E','DisplayName','EKF')
+plot(t,chinorm(8,:),'Color','#4DBEEE','DisplayName','UKF')
+plot(t,chinorm(9,:),'Color','#77AC30','DisplayName','SIR')
 
 xlim([0 tlim])
 % ylim([-25 25])
@@ -1166,15 +1098,15 @@ end
 
 % Plot Chisq
 figure; hold on; legend;
-plot(t,chifrac(1,:),'r','DisplayName', 'PGM-DS')
-plot(t,chifrac(2,:),'g','DisplayName', 'PGM-DU')
-plot(t,chifrac(3,:),'Color','#0072BD','DisplayName', 'PGM1')
-plot(t,chifrac(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
-plot(t,chifrac(5,:),'m','DisplayName', 'AKKF')
-% plot(t,chifrac(6,:),'c','DisplayName', 'EnKF')
-plot(t,chifrac(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
-plot(t,chifrac(8,:),'Color','#4DBEEE','DisplayName', 'UKF')
-plot(t,chifrac(9,:),'Color','#77AC30','DisplayName', 'SIR')
+plot(t,chifrac(1,:),'r','DisplayName','PGM-DS')
+plot(t,chifrac(2,:),'g','DisplayName','PGM-DU')
+plot(t,chifrac(3,:),'Color','#0072BD','DisplayName','PGM1')
+plot(t,chifrac(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
+plot(t,chifrac(5,:),'m','DisplayName','AKKF')
+% plot(t,chifrac(6,:),'c','DisplayName','EnKF')
+plot(t,chifrac(7,:),'Color','#7E2F8E','DisplayName','EKF')
+plot(t,chifrac(8,:),'Color','#4DBEEE','DisplayName','UKF')
+plot(t,chifrac(9,:),'Color','#77AC30','DisplayName','SIR')
 
 xlim([0 tlim])
 % ylim([-25 25])

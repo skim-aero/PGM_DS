@@ -28,7 +28,7 @@ numMC = 1;
 
 rng(22); % 42 22
 
-%% Define a Scenario
+%% Define a scenario
 % Time
 dt = 0.05;
 tf = 10;
@@ -62,8 +62,8 @@ kappa = 0;
 lambda = alpha^2*(n+kappa)-n;
 
 % System/measurement equations
-funsys = @(x,w,k) [wrapToPi(mod(x(1,:)+dt*x(2,:)+dt^2*(-g+w)*sin(x(1,:))/L,2*pi));
-                x(2,:)+dt*(-g+w)*sin(x(1,:))/L];
+funsys = @(x,w,k,j) [wrapToPi(mod(x(1,:)+dt*x(2,:)+dt^2*(-g+w)*sin(x(1,:))/L,2*pi));
+                     x(2,:)+dt*(-g+w)*sin(x(1,:))/L];
 funmeas = @(x,v) abs(L*sin(x(1,:)))+v;
 funpos = @(x) [L*sin(x(1,:));-L*cos(x(1,:))];
 jacobianH = @(x) [L*cos(x(1)) 0];
@@ -101,8 +101,9 @@ cweightall = zeros(4,numMixturetemp,numStep,numMC);
 
 %% Monte Carlo simulation
 % parfevalOnAll(@warning,0,'off','all'); % Temporary error off
+% parfor mc = 1:numMC
 for mc = 1:numMC 
-    disptemp = ['Monete Carlo iteration: ', num2str(mc)];
+    disptemp = ['Monete Carlo iteration: ',num2str(mc)];
     disp(disptemp)
 
     % Generate true states
@@ -111,7 +112,7 @@ for mc = 1:numMC
     trueState(:,1) = trueinitial+sqrt(P0)*randn(n,1);
 
     for i = 2:numStep
-        trueState(:,i) = funsys(trueState(:,i-1),procNoise(i-1));
+        trueState(:,i) = funsys(trueState(:,i-1),procNoise(i-1),[],[]);
     end
 
     truePos = funpos(trueState);
@@ -136,13 +137,13 @@ for mc = 1:numMC
     if figure_view
         fig2 = figure; 
         hold on; legend;
-        plot(t,trueState(1,:),'--ok','DisplayName', 'True')
+        plot(t,trueState(1,:),'--ok','DisplayName','True')
         xlabel('Time (sec)')
         ylabel('Estimated angle (rad)')
 
         fig3 = figure; 
         hold on; legend;
-        plot(t,trueState(2,:),'--ok','DisplayName', 'True')
+        plot(t,trueState(2,:),'--ok','DisplayName','True')
         xlabel('Time (sec)')
         ylabel('Estimated angular velocity (rad/s)')
 
@@ -215,7 +216,7 @@ for mc = 1:numMC
         for i = 2:numStep
             %% Prediction
             for p = 1:numParticles
-                particles(:,p,i) = funsys(particles(:,p,i-1),sqrt(Q)*randn(1));
+                particles(:,p,i) = funsys(particles(:,p,i-1),sqrt(Q)*randn(1),[],[]);
             end
         
             %% Clustering
@@ -285,11 +286,11 @@ for mc = 1:numMC
     
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'r','DisplayName', 'PGM-DS')
+            plot(t,estState(1,:),'r','DisplayName','PGM-DS')
             figure(fig3); 
-            plot(t,estState(2,:),'r','DisplayName', 'PGM-DS')
+            plot(t,estState(2,:),'r','DisplayName','PGM-DS')
             figure(fig4);
-            plot(t,temperror,'r','DisplayName', 'PGM-DS')
+            plot(t,temperror,'r','DisplayName','PGM-DS')
         end
     
         if recordVid_view
@@ -375,7 +376,7 @@ for mc = 1:numMC
         for i = 2:numStep
             %% Prediction
             for p = 1:numParticles
-                particles(:,p,i) = funsys(particles(:,p,i-1),sqrt(Q)*randn(1));
+                particles(:,p,i) = funsys(particles(:,p,i-1),sqrt(Q)*randn(1),[],[]);
             end
         
             %% Clustering
@@ -442,11 +443,11 @@ for mc = 1:numMC
     
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'g','DisplayName', 'PGM-DU')
+            plot(t,estState(1,:),'g','DisplayName','PGM-DU')
             figure(fig3);
-            plot(t,estState(2,:),'g','DisplayName', 'PGM-DU')
+            plot(t,estState(2,:),'g','DisplayName','PGM-DU')
             figure(fig4);
-            plot(t,temperror,'g','DisplayName', 'PGM-DU')
+            plot(t,temperror,'g','DisplayName','PGM-DU')
         end
     
         if recordVid_view
@@ -518,7 +519,7 @@ for mc = 1:numMC
         for i = 2:numStep
             %% Prediction
             for p = 1:numParticles
-                particles(:,p,i) = funsys(particles(:,p,i-1),sqrt(Q)*randn(1));
+                particles(:,p,i) = funsys(particles(:,p,i-1),sqrt(Q)*randn(1),[],[]);
             end
     
             %% Clustering
@@ -588,15 +589,15 @@ for mc = 1:numMC
     
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'Color','#0072BD','DisplayName', 'PGM1')
+            plot(t,estState(1,:),'Color','#0072BD','DisplayName','PGM1')
             figure(fig3);
-            plot(t,estState(2,:),'Color','#0072BD','DisplayName', 'PGM1')
+            plot(t,estState(2,:),'Color','#0072BD','DisplayName','PGM1')
             figure(fig4);
-            plot(t,temperror,'Color','#0072BD','DisplayName', 'PGM1')
+            plot(t,temperror,'Color','#0072BD','DisplayName','PGM1')
         end
         
         if recordVid_view
-            writeObj = VideoWriter('PGM','MPEG-4');
+            writeObj = VideoWriter('PGM1','MPEG-4');
             writeObj.FrameRate = framerate;
             open(writeObj);
             writeVideo(writeObj,frame);
@@ -675,7 +676,7 @@ for mc = 1:numMC
         for i = 2:numStep
             %% Prediction
             for p = 1:numParticles
-                particles(:,p,i) = funsys(particles(:,p,i-1),sqrt(Q)*randn(1));
+                particles(:,p,i) = funsys(particles(:,p,i-1),sqrt(Q)*randn(1),[],[]);
             end
         
             %% Clustering
@@ -742,15 +743,15 @@ for mc = 1:numMC
     
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
+            plot(t,estState(1,:),'Color','#EDB120','DisplayName','PGM1-UT')
             figure(fig3);
-            plot(t,estState(2,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
+            plot(t,estState(2,:),'Color','#EDB120','DisplayName','PGM1-UT')
             figure(fig4);
-            plot(t,temperror,'Color','#EDB120','DisplayName', 'PGM1-UT')
+            plot(t,temperror,'Color','#EDB120','DisplayName','PGM1-UT')
         end
     
         if recordVid_view
-            writeObj = VideoWriter('PGM-UT','MPEG-4');
+            writeObj = VideoWriter('PGM1-UT','MPEG-4');
             writeObj.FrameRate = framerate;
             open(writeObj);
             writeVideo(writeObj,frame);
@@ -778,13 +779,13 @@ for mc = 1:numMC
         AKKF.X_P(:,:,1) = initial+sqrt(P0)*randn(n,numParticles);
     
         % Data space
-    %     AKKF.X_P(:,:,1) = mgd(AKKF.N_P, 4, Tar.X(:,1), Sys.P0).'; % state particles
+    %     AKKF.X_P(:,:,1) = mgd(AKKF.N_P,4,Tar.X(:,1),Sys.P0).'; % state particles
         
         % Kernel space
-        AKKF.W_minus(:,1) = ones(AKKF.N_P, 1)/AKKF.N_P;
+        AKKF.W_minus(:,1) = ones(AKKF.N_P,1)/AKKF.N_P;
         AKKF.S_minus(:,:,1) = eye(AKKF.N_P)/AKKF.N_P;
         
-        AKKF.W_plus(:,1) = ones(AKKF.N_P, 1)/AKKF.N_P;
+        AKKF.W_plus(:,1) = ones(AKKF.N_P,1)/AKKF.N_P;
         AKKF.S_plus(:,:,1) = eye(AKKF.N_P)/AKKF.N_P;
         
         AKKF.X_P_proposal(:,:,1) =  AKKF.X_P(:,:,1);
@@ -822,18 +823,18 @@ for mc = 1:numMC
         for i = 2:numStep
             %% Prediction
             for p = 1:numParticles
-                 AKKF.X_P(:,p,i) = funsys(AKKF.X_P_proposal(:,p,i-1),sqrt(Q)*randn(1));
+                 AKKF.X_P(:,p,i) = funsys(AKKF.X_P_proposal(:,p,i-1),sqrt(Q)*randn(1),[],[]);
             end
     
-            [AKKF] = AKKF_predict(AKKF, i);
+            [AKKF] = AKKF_predict(AKKF,i);
     
             %% Update
             for p = 1:numParticles
                 AKKF.Z_P(:,p,i) = funmeas(AKKF.X_P(:,p,i),sqrt(R)*randn(nm,1));
             end
     
-            [AKKF] = AKKF_update(meas, AKKF, R, i);
-            [AKKF] = AKKF_proposal(AKKF, i);
+            [AKKF] = AKKF_update(meas,AKKF,R,i);
+            [AKKF] = AKKF_proposal(AKKF,i);
     
             estState(:,i) = mean(AKKF.X_P(:,:,i),2);
     
@@ -880,11 +881,11 @@ for mc = 1:numMC
     
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'m','DisplayName', 'AKKF')
+            plot(t,estState(1,:),'m','DisplayName','AKKF')
             figure(fig3);
-            plot(t,estState(2,:),'m','DisplayName', 'AKKF')
+            plot(t,estState(2,:),'m','DisplayName','AKKF')
             figure(fig4);
-            plot(t,temperror,'m','DisplayName', 'AKKF')
+            plot(t,temperror,'m','DisplayName','AKKF')
         end
     end
 
@@ -927,7 +928,7 @@ for mc = 1:numMC
 
         [estState,ensemble_var] = EnKF(numStep,n,nm,meas,numEnsembles,...
                                        estState,ensembles,ensemble_var,ensemble_mean,...
-                                       Q,R,[],[],jacobianH,funsys,funmeas,0,0);
+                                       Q,R,[],[],jacobianH,funsys,funmeas,[]);
     
         %% For evaluation
         for i = 2:numStep
@@ -964,11 +965,11 @@ for mc = 1:numMC
     
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'c','DisplayName', 'EnKF')
+            plot(t,estState(1,:),'c','DisplayName','EnKF')
             figure(fig3);
-            plot(t,estState(2,:),'c','DisplayName', 'EnKF')
+            plot(t,estState(2,:),'c','DisplayName','EnKF')
             figure(fig4);
-            plot(t,temperror,'c','DisplayName', 'EnKF')
+            plot(t,temperror,'c','DisplayName','EnKF')
         end
     end
 
@@ -992,7 +993,7 @@ for mc = 1:numMC
         tStart7 = tic; 
 
         [estState,x,P] = EKF(numStep,n,nm,meas,estState,x,P,...
-                             Q,R,F,[],[],jacobianH,G,funsys,funmeas,1,0,0);
+                             Q,R,F,[],[],jacobianH,G,funsys,funmeas,[]);
 
         %% For evaluation
         for i = 2:numStep
@@ -1012,11 +1013,11 @@ for mc = 1:numMC
     
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'Color','#7E2F8E','DisplayName', 'EKF')
+            plot(t,estState(1,:),'Color','#7E2F8E','DisplayName','EKF')
             figure(fig3);
-            plot(t,estState(2,:),'Color','#7E2F8E','DisplayName', 'EKF')
+            plot(t,estState(2,:),'Color','#7E2F8E','DisplayName','EKF')
             figure(fig4);
-            plot(t,temperror,'Color','#7E2F8E','DisplayName', 'EKF')
+            plot(t,temperror,'Color','#7E2F8E','DisplayName','EKF')
         end
     end
 
@@ -1041,7 +1042,7 @@ for mc = 1:numMC
 
         [estState,x,P] = UKF(numStep,n,nm,meas,estState,x,P,...
                              numSigma,alpha,beta,lambda,...
-                             Q,R,G,funsys,funmeas,0);
+                             Q,R,[],[],G,funsys,funmeas,[]);
     
         %% For evaluation
         for i = 2:numStep
@@ -1066,11 +1067,11 @@ for mc = 1:numMC
     
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'Color','#4DBEEE','DisplayName', 'UKF')
+            plot(t,estState(1,:),'Color','#4DBEEE','DisplayName','UKF')
             figure(fig3);
-            plot(t,estState(2,:),'Color','#4DBEEE','DisplayName', 'UKF')
+            plot(t,estState(2,:),'Color','#4DBEEE','DisplayName','UKF')
             figure(fig4);
-            plot(t,temperror,'Color','#4DBEEE','DisplayName', 'UKF')
+            plot(t,temperror,'Color','#4DBEEE','DisplayName','UKF')
         end
     end
 
@@ -1112,7 +1113,7 @@ for mc = 1:numMC
     
         [estState,particles,weights] = ...
                 SIR(numStep,n,nm,meas,numParticles,estState,particles,weights,...
-                    Q,R,[],[],funsys,funmeas,0,[],0);
+                    Q,R,[],[],funsys,funmeas,[],[]);
     
         %% For evaluation
         for i = 2:numStep
@@ -1157,11 +1158,11 @@ for mc = 1:numMC
     
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'Color','#77AC30','DisplayName', 'SIR')
+            plot(t,estState(1,:),'Color','#77AC30','DisplayName','SIR')
             figure(fig3);
-            plot(t,estState(2,:),'Color','#77AC30','DisplayName', 'SIR')
+            plot(t,estState(2,:),'Color','#77AC30','DisplayName','SIR')
             figure(fig4);
-            plot(t,temperror,'Color','#77AC30','DisplayName', 'SIR')
+            plot(t,temperror,'Color','#77AC30','DisplayName','SIR')
         end
     
         if recordVid_view
@@ -1204,7 +1205,7 @@ end
 
 % Averaged RMSE
 for fil = 1:9
-    armse(fil) = sum(rmse(fil,:))/numStep;  % PGM-UT/PGM/UKF/SIR
+    armse(fil) = sum(rmse(fil,:))/numStep;
     cnttotal(fil) = sum(correctcnt(fil,:));
 end
 
@@ -1212,15 +1213,15 @@ divall = sum(divergecnt(:,:));
 
 % Plot
 figure; hold on; legend;
-plot(t,rmse(1,:),'r','DisplayName', 'PGM-DS')
-plot(t,rmse(2,:),'g','DisplayName', 'PGM-DU')
-plot(t,rmse(3,:),'Color','#0072BD','DisplayName', 'PGM1')
-plot(t,rmse(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
-plot(t,rmse(5,:),'m','DisplayName', 'AKKF')
-% plot(t,rmse(6,:),'c','DisplayName', 'EnKF')
-% plot(t,rmse(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
-plot(t,rmse(8,:),'Color','#4DBEEE','DisplayName', 'UKF')
-plot(t,rmse(9,:),'Color','#77AC30','DisplayName', 'SIR')
+plot(t,rmse(1,:),'r','DisplayName','PGM-DS')
+plot(t,rmse(2,:),'g','DisplayName','PGM-DU')
+plot(t,rmse(3,:),'Color','#0072BD','DisplayName','PGM1')
+plot(t,rmse(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
+plot(t,rmse(5,:),'m','DisplayName','AKKF')
+% plot(t,rmse(6,:),'c','DisplayName','EnKF')
+% plot(t,rmse(7,:),'Color','#7E2F8E','DisplayName','EKF')
+plot(t,rmse(8,:),'Color','#4DBEEE','DisplayName','UKF')
+plot(t,rmse(9,:),'Color','#77AC30','DisplayName','SIR')
 
 xlim([0 tf])
 % ylim([-25 25])
@@ -1241,15 +1242,15 @@ end
 
 % Plot Chisq
 figure; hold on; legend;
-plot(t,chinorm(1,:),'r','DisplayName', 'PGM-DS')
-plot(t,chinorm(2,:),'g','DisplayName', 'PGM-DU')
-plot(t,chinorm(3,:),'Color','#0072BD','DisplayName', 'PGM1')
-plot(t,chinorm(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
-plot(t,chinorm(5,:),'m','DisplayName', 'AKKF')
-% plot(t,chinorm(6,:),'c','DisplayName', 'EnKF')
-% plot(t,chinorm(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
-plot(t,chinorm(8,:),'Color','#4DBEEE','DisplayName', 'UKF')
-plot(t,chinorm(9,:),'Color','#77AC30','DisplayName', 'SIR')
+plot(t,chinorm(1,:),'r','DisplayName','PGM-DS')
+plot(t,chinorm(2,:),'g','DisplayName','PGM-DU')
+plot(t,chinorm(3,:),'Color','#0072BD','DisplayName','PGM1')
+plot(t,chinorm(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
+plot(t,chinorm(5,:),'m','DisplayName','AKKF')
+% plot(t,chinorm(6,:),'c','DisplayName','EnKF')
+% plot(t,chinorm(7,:),'Color','#7E2F8E','DisplayName','EKF')
+plot(t,chinorm(8,:),'Color','#4DBEEE','DisplayName','UKF')
+plot(t,chinorm(9,:),'Color','#77AC30','DisplayName','SIR')
 
 xlim([0 tf])
 ylim([0 15000])
@@ -1281,15 +1282,15 @@ end
 
 % Plot Chisq
 figure; hold on; legend;
-plot(t,chifrac(1,:),'r','DisplayName', 'PGM-DS')
-plot(t,chifrac(2,:),'g','DisplayName', 'PGM-DU')
-plot(t,chifrac(3,:),'Color','#0072BD','DisplayName', 'PGM1')
-plot(t,chifrac(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
-plot(t,chifrac(5,:),'m','DisplayName', 'AKKF')
-% plot(t,chifrac(6,:),'c','DisplayName', 'EnKF')
-% plot(t,chifrac(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
-plot(t,chifrac(8,:),'Color','#4DBEEE','DisplayName', 'UKF')
-plot(t,chifrac(9,:),'Color','#77AC30','DisplayName', 'SIR')
+plot(t,chifrac(1,:),'r','DisplayName','PGM-DS')
+plot(t,chifrac(2,:),'g','DisplayName','PGM-DU')
+plot(t,chifrac(3,:),'Color','#0072BD','DisplayName','PGM1')
+plot(t,chifrac(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
+plot(t,chifrac(5,:),'m','DisplayName','AKKF')
+% plot(t,chifrac(6,:),'c','DisplayName','EnKF')
+% plot(t,chifrac(7,:),'Color','#7E2F8E','DisplayName','EKF')
+plot(t,chifrac(8,:),'Color','#4DBEEE','DisplayName','UKF')
+plot(t,chifrac(9,:),'Color','#77AC30','DisplayName','SIR')
 
 xlim([0 tf])
 % ylim([-25 25])

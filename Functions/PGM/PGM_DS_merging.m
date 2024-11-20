@@ -14,13 +14,11 @@ function [particles,particle_clust,particle_mean,particle_var,...
                     temp1 = particle_mean(:,clst1,i)-particle_mean(:,clst2,i);
                     temp2 = (particle_var(:,:,clst1,i)+particle_var(:,:,clst2,i))/2+1e-8*eye(n);
 
-                    distance = temp1'/temp2*temp1;
+                    distance = sqrt(temp1'/temp2*temp1);
 
                     if distance < merging_thres
                         idx_mer = [idx_mer,clst2];
                         idx(idx == clst2) = clst1;
-                        cweight(clst1) = cweight(clst1)+cweight(clst2);
-                        cweight(clst2) = 0;
                     end
                 end
             end
@@ -28,9 +26,25 @@ function [particles,particle_clust,particle_mean,particle_var,...
 
         if isempty(idx_mer)
             notdone = false;
-        else
-            cweight(cweight == 0) = [];
 
+            % Single particle case filtering
+            numMixture_temp = sum(unique(idx) ~= -1);
+        
+            if numMixture_temp > 1
+                for clst = 1:numMixture_temp
+                    leng = length(idx(idx == clst));
+            
+                    if leng < 2
+                        idx(idx == clst) = -1;
+                        particle_mean(:,clst,:) = [];
+                        particle_var(:,:,clst,:) = [];
+                        cweight(clst) = [];
+                        numMixture = numMixture_temp;
+                    end
+                end
+            end
+
+        else
             % Initialise variables
             unique_values = unique(idx);
             new_idx = zeros(size(idx));
@@ -42,16 +56,12 @@ function [particles,particle_clust,particle_mean,particle_var,...
                     indices = idx == unique_values(num);
                     if sum(indices) == 1
                         new_idx(indices) = -1;
-                        cweight(unique_values(num)) = 0;
                     else
                         new_idx(indices) = counter;
                         counter = counter+1;
                     end
                 end
             end
-
-            cweight = cweight(cweight ~= 0);
-            numMixture = length(cweight);
 
             % Keep -1 unchanged
             new_idx(idx == -1) = -1;
@@ -63,8 +73,12 @@ function [particles,particle_clust,particle_mean,particle_var,...
             idx = idx(idx1);
             particle_clust(:,:,i) = particles(:,idx1,i);
 
+            numMixture = sum(unique(idx) ~= -1);
+            cweight = zeros(numMixture,1);
+
             for clst = 1:numMixture
-                leng = length(particle_clust(:,idx == clst,i));
+                leng = length(idx(idx == clst));
+                cweight(clst) = leng/length(particles);
 
                 for j = 1:n
                     particle_mean(j,clst,i) = mean(particle_clust(j,leng_old+1:leng_old+leng,i));
@@ -81,10 +95,12 @@ function [particles,particle_clust,particle_mean,particle_var,...
                         end
                     end
                 end
+
                 leng_old = leng_old+leng;
             end
         end
     end
+
     particle_mean = particle_mean(:,1:numMixture,:);
     particle_var = particle_var(:,:,1:numMixture,:);
     cweight = normalize(cweight,"norm",1);

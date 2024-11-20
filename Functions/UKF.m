@@ -1,6 +1,6 @@
 function [estState,x,P] = ...
          UKF(numStep,n,nm,meas,estState,x,P,numSigma,alpha,beta,lambda,...
-             Q,R,G,funsys,funmeas,interm)
+             Q,R,F,H,G,funsys,funmeas,interm)
         % UKF
 
     % Initialisation
@@ -11,7 +11,7 @@ function [estState,x,P] = ...
     xn = zeros(n,1);
     Pn = zeros(n);
     zn = zeros(nm,1);
-    Pz = zeros(nm);
+    Pzz = zeros(nm);
     Pxz = zeros(n,nm);
 
     % Sigma points
@@ -26,7 +26,13 @@ function [estState,x,P] = ...
     % Main loop
     for i = 2:numStep
         % Sigma points
-        sqrt_P = chol((n+lambda)*P,'lower'); % Square root of scaled covariance
+        try
+            sqrt_P = chol((n+lambda)*P,'lower');        % square root of scaled covariance
+        catch
+            P = nearestSPD(P)+1e-6*eye(n);              % if Cholesky fails, add regularisation and retry
+            sqrt_P = chol((n+lambda)*P,'lower');        % square root of scaled covariance
+        end
+
         xs(:,1,i) = x;
 
         for j = 1:n
@@ -36,7 +42,11 @@ function [estState,x,P] = ...
 
         % Prediction
         for j = 1:numSigma
-            xs(:,j,i) = funsys(xs(:,j,i),0,i-1);
+            if ~isempty(F)
+                xs(:,j,i) = F*xs(:,j,i);
+            else
+                xs(:,j,i) = funsys(xs(:,j,i),0,i-1,8);
+            end
             xn = xn+wm(j)*xs(:,j,i);
         end
         
@@ -46,56 +56,55 @@ function [estState,x,P] = ...
         Pn = Pn+G*Q*G';
     
         % Update
-        if interm
-            disp("Fuck?")
-            if rem(i,20) == 0        
+        if ~isempty(interm)
+            if rem(i,interm) == 0        
                 for j = 1:numSigma
-	                zs(:,j,i) = funmeas(xs(:,j,i),0);
+                    if ~isempty(H)
+                        zs(:,j,i) = H*xs(:,j,i);
+                    else
+	                    zs(:,j,i) = funmeas(xs(:,j,i),0);
+                    end
                     zn = zn+wm(j)*zs(:,j,i);
                 end
         
                 for j = 1:numSigma
-                    Pz = Pz+wc(j)*(zs(:,j,i)-zn)*(zs(:,j,i)-zn)';
+                    Pzz = Pzz+wc(j)*(zs(:,j,i)-zn)*(zs(:,j,i)-zn)';
                 end
-                Pz = Pz+R*eye(nm);
+                Pzz = Pzz+R*eye(nm);
             
                 for j = 1:numSigma
                     Pxz = Pxz+wc(j)*(xs(:,j,i)-xn)*(zs(:,j,i)-zn)';
                 end
             
-                K = Pxz/Pz;
+                K = Pxz/Pzz;
                 x = xn+K*(meas(:,i)-zn);
-                P = Pn-K*Pz*K';
+                P = Pn-K*Pzz*K';
             else
                 P = Pn;
                 x = xn;            
             end
         else
             for j = 1:numSigma
-	            zs(:,j,i) = funmeas(xs(:,j,i),0);
+                if ~isempty(H)
+                    zs(:,j,i) = H*xs(:,j,i);
+                else
+                    zs(:,j,i) = funmeas(xs(:,j,i),0);
+                end
                 zn = zn+wm(j)*zs(:,j,i);
             end
     
             for j = 1:numSigma
-                Pz = Pz+wc(j)*(zs(:,j,i)-zn)*(zs(:,j,i)-zn)';
+                Pzz = Pzz+wc(j)*(zs(:,j,i)-zn)*(zs(:,j,i)-zn)';
             end
-            Pz = Pz+R*eye(nm);
+            Pzz = Pzz+R*eye(nm);
         
             for j = 1:numSigma
                 Pxz = Pxz+wc(j)*(xs(:,j,i)-xn)*(zs(:,j,i)-zn)';
             end
         
-            K = Pxz/Pz;
+            K = Pxz/Pzz;
             x = xn+K*(meas(:,i)-zn);
-            P = Pn-K*Pz*K';
-        end
-
-        % Covariance correction tricks
-        P = (P+P.')/2;
-        
-        % Check and correct eigenvalues if necessary
-        while any(eig(P) <= 1e-8)
-            P = P+0.1*eye(n);
+            P = Pn-K*Pzz*K';
         end
 
         estState(:,i) = x;
@@ -104,7 +113,7 @@ function [estState,x,P] = ...
         xn = zeros(n,1);
         Pn = zeros(n);
         zn = zeros(nm,1);
-        Pz = zeros(nm);
+        Pzz = zeros(nm);
         Pxz = zeros(n,nm);
     end
 end

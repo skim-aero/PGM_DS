@@ -134,13 +134,11 @@ class PGM_DS(object):
                         temp1 = self.particle_mean[:,clst1]-self.particle_mean[:,clst2]
                         temp2 = np.linalg.inv((self.particle_var[:,:,clst1]+self.particle_var[:,:,clst2,])/2+self.epsilon*np.eye(self.n)) # Add small jitter
 
-                        distance = np.dot(np.dot(temp1, temp2), temp1)
+                        distance = np.sqrt(np.dot(np.dot(temp1, temp2), temp1))
 
                         if distance < self.merging_thres:
                             idx_mer.append(clst2)
                             label[label == clst2] = clst1
-                            self.cweight[clst1] += self.cweight[clst2]
-                            self.cweight[clst2] = 0
 
             if not idx_mer:
                 notdone = False
@@ -154,13 +152,9 @@ class PGM_DS(object):
                         indices = label == unique_values[i]
                         if sum(indices) == 1:
                             new_label[indices] = -1
-                            self.cweight[unique_values[i]] = 0
                         else:
                             new_label[indices] = cnt
                             cnt += 1
-
-                self.cweight = self.cweight[self.cweight != 0]
-                self.numMixture = len(self.cweight)
 
                 new_label[label == -1] = -1     
                 label = new_label
@@ -169,6 +163,9 @@ class PGM_DS(object):
 
                 idx = np.argsort(label)
                 self.particle[:,:,t] = self.particle[:,idx,t]
+
+                self.numMixture = np.sum(unique_values != -1)
+                self.cweight = np.zeros((self.numMixture,1))
 
                 for clst in range(self.numMixture):
                     leng = np.sum(label == clst)

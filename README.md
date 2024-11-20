@@ -25,10 +25,11 @@ Just run with MATLAB! :)
 * 4th Sep 2024 Beta 0.0: First commit
 * 23rd Oct 2024 Beta 0.1: Simple Python example added
 * 24th Oct 2024 Beta 0.2: Parameter modification
-* 6th Nov 2024 Beta 0.3: Minor function modification
+* 6th  Nov 2024 Beta 0.3: Minor function modification
 * 11th Nov 2024 Beta 0.4: Updated figures
 * 14th Nov 2024 Beta 0.5: Minor modifications
 * 16th Nov 2024 Beta 0.6: Minor function modification + Blid tryciclist example added
 * 17th Nov 2024 Beta 0.7: Updated functions
 * 18th Nov 2024 Beta 0.8: Updated functions
 * 19th Nov 2024 Beta 0.9: Minor modifications
+* 2nd  Dec 2024 Release 1.0: First public

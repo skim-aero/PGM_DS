@@ -26,7 +26,7 @@ numMC = 1;
 
 rng(42);
 
-%% Define a Scenario
+%% Define a scenario
 % Time
 dt = 0.05;
 tf = 10-dt;
@@ -55,6 +55,8 @@ kappa = 0;
 lambda = alpha^2*(n+kappa)-n;
 
 % System/measurement equations
+funsys = @(x,w,k,F) Lorenz4DP(x,w,k,F);
+
 H = zeros(nm,n);
 for i = 1:nm
     for j = 1:n
@@ -68,6 +70,8 @@ for i = 1:nm
 end
 
 funmeas = @(x,v) H*x+v;
+jacobianF = @(x) Lorenz4DJ(x);
+
 G = eye(n);
 
 %% For evaluation
@@ -96,11 +100,12 @@ cmeanall = zeros(4,n,numMixturetemp,numStep,numMC);
 ccovarall = zeros(4,n,n,numMixturetemp,numStep,numMC);
 cweightall = zeros(4,numMixturetemp,numStep,numMC);
 
+%% Monte Carlo simulation
 % parpool(4) % Limit the workers to half of the CPU due to memory...
 % parfevalOnAll(@warning,0,'off','all'); % Temporary error off
-%% Monte Carlo simulation
+% parfor mc = 1:numMC
 for mc = 1:numMC 
-    disptemp = ['Monete Carlo iteration: ', num2str(mc)];
+    disptemp = ['Monete Carlo iteration: ',num2str(mc)];
     disp(disptemp)
 
     % Generate true states
@@ -124,7 +129,7 @@ for mc = 1:numMC
     if figure_view
         fig2 = figure;
         hold on; legend;
-        plot(t,trueState(1,:),'--ok','DisplayName', 'True')
+        plot(t,trueState(1,:),'--ok','DisplayName','True')
         xlabel('Time (sec)')
         ylabel('Estimated state (first)')
 
@@ -182,7 +187,7 @@ for mc = 1:numMC
         for i = 2:numStep
             %% Prediction
             for p = 1:numParticles
-                particles(:,p,i) = Lorenz4DP(particles(:,p,i-1),Q,Param_F);
+                particles(:,p,i) = Lorenz4DP(particles(:,p,i-1),Q,[],Param_F);
             end
         
             %% Clustering
@@ -244,9 +249,9 @@ for mc = 1:numMC
         
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'r','DisplayName', 'PGM-DS')
+            plot(t,estState(1,:),'r','DisplayName','PGM-DS')
             figure(fig3)
-            plot(t,temperror,'r','DisplayName', 'PGM-DS')
+            plot(t,temperror,'r','DisplayName','PGM-DS')
         end
     end
 
@@ -309,7 +314,7 @@ for mc = 1:numMC
         for i = 2:numStep
             %% Prediction
             for p = 1:numParticles
-                particles(:,p,i) = Lorenz4DP(particles(:,p,i-1),Q,Param_F);
+                particles(:,p,i) = Lorenz4DP(particles(:,p,i-1),Q,[],Param_F);
             end
         
             %% Clustering
@@ -368,9 +373,9 @@ for mc = 1:numMC
         
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'g','DisplayName', 'PGM-DU')
+            plot(t,estState(1,:),'g','DisplayName','PGM-DU')
             figure(fig3)
-            plot(t,temperror,'g','DisplayName', 'PGM-DU')
+            plot(t,temperror,'g','DisplayName','PGM-DU')
         end
     end
 
@@ -420,7 +425,7 @@ for mc = 1:numMC
         for i = 2:numStep
             %% Prediction
             for p = 1:numParticles
-                particles(:,p,i) = Lorenz4DP(particles(:,p,i-1),Q,Param_F);
+                particles(:,p,i) = Lorenz4DP(particles(:,p,i-1),Q,[],Param_F);
             end
         
             %% Clustering
@@ -482,9 +487,9 @@ for mc = 1:numMC
         
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'Color','#0072BD','DisplayName', 'PGM1')
+            plot(t,estState(1,:),'Color','#0072BD','DisplayName','PGM1')
             figure(fig3);
-            plot(t,temperror,'Color','#0072BD','DisplayName', 'PGM1')
+            plot(t,temperror,'Color','#0072BD','DisplayName','PGM1')
         end
     end
 
@@ -545,7 +550,7 @@ for mc = 1:numMC
         for i = 2:numStep
             %% Prediction
             for p = 1:numParticles
-                particles(:,p,i) = Lorenz4DP(particles(:,p,i-1),Q,Param_F);
+                particles(:,p,i) = Lorenz4DP(particles(:,p,i-1),Q,[],Param_F);
             end
         
             %% Clustering
@@ -604,9 +609,9 @@ for mc = 1:numMC
         
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
+            plot(t,estState(1,:),'Color','#EDB120','DisplayName','PGM1-UT')
             figure(fig3); 
-            plot(t,temperror,'Color','#EDB120','DisplayName', 'PGM1-UT')
+            plot(t,temperror,'Color','#EDB120','DisplayName','PGM1-UT')
         end
     end
 
@@ -630,13 +635,13 @@ for mc = 1:numMC
         AKKF.X_P(:,:,1) = initial+sqrt(P0)*randn(n,numParticles);
     
         % Data space
-    %     AKKF.X_P(:,:,1) = mgd(AKKF.N_P, 4, Tar.X(:,1), Sys.P0).'; % state particles
+    %     AKKF.X_P(:,:,1) = mgd(AKKF.N_P,4,Tar.X(:,1),Sys.P0).'; % state particles
         
         % Kernel space
-        AKKF.W_minus(:,1) = ones(AKKF.N_P, 1)/AKKF.N_P;
+        AKKF.W_minus(:,1) = ones(AKKF.N_P,1)/AKKF.N_P;
         AKKF.S_minus(:,:,1) = eye(AKKF.N_P)/AKKF.N_P;
         
-        AKKF.W_plus(:,1) = ones(AKKF.N_P, 1)/AKKF.N_P;
+        AKKF.W_plus(:,1) = ones(AKKF.N_P,1)/AKKF.N_P;
         AKKF.S_plus(:,:,1) = eye(AKKF.N_P)/AKKF.N_P;
         
         AKKF.X_P_proposal(:,:,1) =  AKKF.X_P(:,:,1);
@@ -660,10 +665,10 @@ for mc = 1:numMC
         for i = 2:numStep
             %% Prediction
             for p = 1:numParticles
-                AKKF.X_P(:,p,i) = Lorenz4DP(AKKF.X_P_proposal(:,p,i-1),Q,Param_F);
+                AKKF.X_P(:,p,i) = Lorenz4DP(AKKF.X_P_proposal(:,p,i-1),Q,[],Param_F);
             end
     
-            [AKKF] = AKKF_predict(AKKF, i);
+            [AKKF] = AKKF_predict(AKKF,i);
     
             %% Update
             for p = 1:numParticles
@@ -671,8 +676,8 @@ for mc = 1:numMC
             end 
     
             if rem(i,20) == 0
-                [AKKF] = AKKF_update(meas, AKKF, R, i);
-                [AKKF] = AKKF_proposal(AKKF, i);
+                [AKKF] = AKKF_update(meas,AKKF,R,i);
+                [AKKF] = AKKF_proposal(AKKF,i);
             else
                 AKKF.W_minus(:,i) = AKKF.W_minus(:,i-1);
                 AKKF.S_minus(:,:,i) = AKKF.S_minus(:,:,i-1);
@@ -711,9 +716,9 @@ for mc = 1:numMC
         
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'m','DisplayName', 'AKKF')
+            plot(t,estState(1,:),'m','DisplayName','AKKF')
             figure(fig3);
-            plot(t,temperror,'m','DisplayName', 'AKKF')
+            plot(t,temperror,'m','DisplayName','AKKF')
         end
     end
 
@@ -740,10 +745,9 @@ for mc = 1:numMC
         %% Main loop
         tStart6 = tic;
 
-        Lorenzhandle = @(particles,w,F) Lorenz4DP(particles,w,F);
         [estState,ensemble_var] = EnKF(numStep,n,nm,meas,numEnsembles,...
                                        estState,ensembles,ensemble_var,ensemble_mean,...
-                                       Q,R,[],H,[],Lorenzhandle,funmeas,0,1);
+                                       Q,R,[],H,[],funsys,funmeas,20);
         
         %% For evaluation
         for i = 2:numStep
@@ -760,9 +764,9 @@ for mc = 1:numMC
         
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'c','DisplayName', 'EnKF')
+            plot(t,estState(1,:),'c','DisplayName','EnKF')
             figure(fig3);
-            plot(t,temperror,'c','DisplayName', 'EnKF')
+            plot(t,temperror,'c','DisplayName','EnKF')
         end
     end
     
@@ -785,9 +789,8 @@ for mc = 1:numMC
         %% Main loop
         tStart7 = tic; 
         
-        Lorenzhandle = @(x) Lorenz4DJ(x);
         [estState,x,P] = EKF(numStep,n,nm,meas,estState,x,P,...
-                             Q,R,[],H,Lorenzhandle,[],G,[],[],0,1,1);
+                             Q,R,[],H,jacobianF,[],G,[],[],20);
     
         %% For evaluation
         for i = 2:numStep
@@ -802,9 +805,9 @@ for mc = 1:numMC
         
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'Color','#7E2F8E','DisplayName', 'EKF')
+            plot(t,estState(1,:),'Color','#7E2F8E','DisplayName','EKF')
             figure(fig3);
-            plot(t,temperror,'Color','#7E2F8E','DisplayName', 'EKF')
+            plot(t,temperror,'Color','#7E2F8E','DisplayName','EKF')
         end
     end
     
@@ -827,10 +830,9 @@ for mc = 1:numMC
         %% Main loop
         tStart8 = tic; 
 
-        Lorenzhandle = @(x,w,F) Lorenz4DP(x,w,F);
         [estState,x,P] = UKF(numStep,n,nm,meas,estState,x,P,...
                              numSigma,alpha,beta,lambda,...
-                             Q,R,G,Lorenzhandle,funmeas,1);
+                             Q,R,[],[],G,funsys,funmeas,20);
         
         %% For evaluation
         for i = 2:numStep
@@ -845,9 +847,9 @@ for mc = 1:numMC
         
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'Color','#4DBEEE','DisplayName', 'UKF')
+            plot(t,estState(1,:),'Color','#4DBEEE','DisplayName','UKF')
             figure(fig3);
-            plot(t,temperror,'Color','#4DBEEE','DisplayName', 'UKF')
+            plot(t,temperror,'Color','#4DBEEE','DisplayName','UKF')
         end
     end
 
@@ -858,7 +860,6 @@ for mc = 1:numMC
     
         %% Initialisation
         particles = zeros(n,numParticles,numStep);
-        particle_meas = zeros(nm,numParticles,numStep);
         weights = zeros(numParticles,numStep);
     
         estState = zeros(n,numStep); % storage for state estimates
@@ -877,10 +878,9 @@ for mc = 1:numMC
         %% Main loop
         tStart7 = tic; 
 
-        Lorenzhandle = @(particles,w,F) Lorenz4DP(particles,w,F);
         [estState,particles,weights] = ...
                 SIR(numStep,n,nm,meas,numParticles,estState,particles,weights,...
-                    Q,R,[],[],Lorenzhandle,funmeas,0,numEffparticles,1);
+                    Q,R,[],[],funsys,funmeas,numEffparticles,20);
     
         %% For evaluation
         for i = 2:numStep
@@ -905,9 +905,9 @@ for mc = 1:numMC
         
         if figure_view
             figure(fig2); 
-            plot(t,estState(1,:),'Color',"#77AC30",'DisplayName', 'SIR')
+            plot(t,estState(1,:),'Color',"#77AC30",'DisplayName','SIR')
             figure(fig3);
-            plot(t,temperror,'Color',"#77AC30",'DisplayName', 'SIR')
+            plot(t,temperror,'Color',"#77AC30",'DisplayName','SIR')
         end
     end
    
@@ -939,20 +939,20 @@ end
 
 % Averaged RMSE
 for fil = 1:7
-    armse(fil) = sum(rmse(fil,:))/numStep;  % PGM-UT/PGM/UKF/SIR
+    armse(fil) = sum(rmse(fil,:))/numStep;
 end
 
 % Plot RMSE
 figure; hold on; legend;
-plot(t,rmse(1,:),'r','DisplayName', 'PGM-DS')
-plot(t,rmse(2,:),'g','DisplayName', 'PGM-DU')
-plot(t,rmse(3,:),'Color','#0072BD','DisplayName', 'PGM1')
-plot(t,rmse(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
-plot(t,rmse(5,:),'m','DisplayName', 'AKKF')
-plot(t,rmse(6,:),'c','DisplayName', 'EnKF')
-% plot(t,rmse(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
-% plot(t,rmse(8,:),'Color','#4DBEEE','DisplayName', 'UKF')
-plot(t,rmse(7,:),'Color','#77AC30','DisplayName', 'SIR')
+plot(t,rmse(1,:),'r','DisplayName','PGM-DS')
+plot(t,rmse(2,:),'g','DisplayName','PGM-DU')
+plot(t,rmse(3,:),'Color','#0072BD','DisplayName','PGM1')
+plot(t,rmse(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
+plot(t,rmse(5,:),'m','DisplayName','AKKF')
+plot(t,rmse(6,:),'c','DisplayName','EnKF')
+% plot(t,rmse(7,:),'Color','#7E2F8E','DisplayName','EKF')
+% plot(t,rmse(8,:),'Color','#4DBEEE','DisplayName','UKF')
+plot(t,rmse(7,:),'Color','#77AC30','DisplayName','SIR')
 
 xlim([0 tf])
 % ylim([-25 25])
@@ -973,15 +973,15 @@ end
 
 % Plot Chisq
 figure; hold on; legend;
-plot(t,chinorm(1,:),'r','DisplayName', 'PGM-DS')
-plot(t,chinorm(2,:),'g','DisplayName', 'PGM-DU')
-plot(t,chinorm(3,:),'Color','#0072BD','DisplayName', 'PGM1')
-plot(t,chinorm(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
-plot(t,chinorm(5,:),'m','DisplayName', 'AKKF')
-plot(t,chinorm(6,:),'c','DisplayName', 'EnKF')
-% plot(t,chinorm(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
-% plot(t,chinorm(8,:),'Color','#4DBEEE','DisplayName', 'UKF')
-plot(t,chinorm(7,:),'Color','#77AC30','DisplayName', 'SIR')
+plot(t,chinorm(1,:),'r','DisplayName','PGM-DS')
+plot(t,chinorm(2,:),'g','DisplayName','PGM-DU')
+plot(t,chinorm(3,:),'Color','#0072BD','DisplayName','PGM1')
+plot(t,chinorm(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
+plot(t,chinorm(5,:),'m','DisplayName','AKKF')
+plot(t,chinorm(6,:),'c','DisplayName','EnKF')
+% plot(t,chinorm(7,:),'Color','#7E2F8E','DisplayName','EKF')
+% plot(t,chinorm(8,:),'Color','#4DBEEE','DisplayName','UKF')
+plot(t,chinorm(7,:),'Color','#77AC30','DisplayName','SIR')
 
 xlim([0 tf])
 % ylim([-25 25])
@@ -1013,15 +1013,15 @@ end
 
 % Plot Chisq
 figure; hold on; legend;
-plot(t,chifrac(1,:),'r','DisplayName', 'PGM-DS')
-plot(t,chifrac(2,:),'g','DisplayName', 'PGM-DU')
-plot(t,chifrac(3,:),'Color','#0072BD','DisplayName', 'PGM1')
-plot(t,chifrac(4,:),'Color','#EDB120','DisplayName', 'PGM1-UT')
-plot(t,chifrac(5,:),'m','DisplayName', 'AKKF')
-plot(t,chifrac(6,:),'c','DisplayName', 'EnKF')
-% plot(t,chifrac(7,:),'Color','#7E2F8E','DisplayName', 'EKF')
-% plot(t,chifrac(8,:),'Color','#4DBEEE','DisplayName', 'UKF')
-plot(t,chifrac(7,:),'Color','#77AC30','DisplayName', 'SIR')
+plot(t,chifrac(1,:),'r','DisplayName','PGM-DS')
+plot(t,chifrac(2,:),'g','DisplayName','PGM-DU')
+plot(t,chifrac(3,:),'Color','#0072BD','DisplayName','PGM1')
+plot(t,chifrac(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
+plot(t,chifrac(5,:),'m','DisplayName','AKKF')
+plot(t,chifrac(6,:),'c','DisplayName','EnKF')
+% plot(t,chifrac(7,:),'Color','#7E2F8E','DisplayName','EKF')
+% plot(t,chifrac(8,:),'Color','#4DBEEE','DisplayName','UKF')
+plot(t,chifrac(7,:),'Color','#77AC30','DisplayName','SIR')
 
 xlim([0 tf])
 % ylim([-25 25])

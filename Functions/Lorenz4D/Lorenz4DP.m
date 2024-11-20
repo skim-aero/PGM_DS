@@ -1,4 +1,4 @@
-function X = Lorenz4DP(particles,w,Param_F)
+function X = Lorenz4DP(particles,w,k,Param_F)
     % X (txJ) = lorenz4D(tf,noise,forcing)
     % ensure final time is divisible by h
     
