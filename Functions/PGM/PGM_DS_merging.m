@@ -29,6 +29,7 @@ function [particles,particle_clust,particle_mean,particle_var,...
 
             % Single particle case filtering
             numMixture_temp = sum(unique(idx) ~= -1);
+            numMixture = numMixture_temp;
         
             if numMixture_temp > 1
                 for clst = 1:numMixture_temp
@@ -39,7 +40,7 @@ function [particles,particle_clust,particle_mean,particle_var,...
                         particle_mean(:,clst,:) = [];
                         particle_var(:,:,clst,:) = [];
                         cweight(clst) = [];
-                        numMixture = numMixture_temp;
+                        numMixture = numMixture-1;
                     end
                 end
             end

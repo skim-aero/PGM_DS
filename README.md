@@ -32,4 +32,5 @@ Just run with MATLAB! :)
 * 17th Nov 2024 Beta 0.7: Updated functions
 * 18th Nov 2024 Beta 0.8: Updated functions
 * 19th Nov 2024 Beta 0.9: Minor modifications
-* 2nd  Dec 2024 Release 1.0: First public
+* 2nd  Dec 2024 Release 1.0: First release
+* 17th Dec 2024 Release 1.1: Minor modifications
