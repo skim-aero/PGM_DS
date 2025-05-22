@@ -5,7 +5,8 @@
 This is a repository of DBSCAN-based particle Gaussian mixture (PGM) filters: PGM-DS and PGM-DU where DU utilised unscented transform (UT) in the updated step just as like as UKF.
 
 Detail of the algorithm can be found from following paper:
-Paper soon be updated and the paper is based on Beta 0.5.
+[PGM-DS/DU](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5158079)
+(Note that the paper is based on Beta 0.5.)
 
 
 **Developed by Sukkeun Kim, Cranfield University, UK**
@@ -34,3 +35,4 @@ Just run with MATLAB! :)
 * 19th Nov 2024 Beta 0.9: Minor modifications
 * 2nd  Dec 2024 Release 1.0: First release
 * 17th Dec 2024 Release 1.1: Minor modifications
+* 21st May 2025 Release 1.2: Simulation modifications

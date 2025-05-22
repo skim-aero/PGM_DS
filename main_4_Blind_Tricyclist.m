@@ -19,12 +19,12 @@ comparison_EKF = 1;         % 1: compare with EKF / 0: no comparison
 comparison_UKF = 1;         % 1: compare with UKF / 0: no comparison
 comparison_SIR = 1;         % 1: compare with SIR / 0: no comparison
 
-numParticles = 8000;
+numParticles = 7000;
 numEnsembles = numParticles;
 numPartiAKKF = 1000;
-numParticlSIR = 10000;
+numParticlSIR = numParticles;
 numMixturetemp = 1000;
-numMC = 1;
+numMC = 100;
 
 rng(42);
 
@@ -84,10 +84,10 @@ ccovarall = zeros(4,n,n,numMixturetemp,numStep,numMC);
 cweightall = zeros(4,numMixturetemp,numStep,numMC);
 
 %% Monte Carlo simulation
-% parpool(4) % Limit the workers to half of the CPU due to memory...
-% parfevalOnAll(@warning,0,'off','all'); % Temporary error off
-% parfor mc = 1:numMC
-for mc = 1:numMC 
+parpool(4) % Limit the workers to half of the CPU due to memory...
+parfevalOnAll(@warning,0,'off','all'); % Temporary error off
+parfor mc = 1:numMC
+% for mc = 1:numMC 
     disptemp = ['Monete Carlo iteration: ',num2str(mc)];
     disp(disptemp)
 
@@ -122,6 +122,7 @@ for mc = 1:numMC
         xlabel('Time (sec)')  
         ylabel('|Position estimation error| (m)')
         xlim([0 141])
+        set(gca,'YScale','log')
     end
  
     %% PGM-DS
@@ -996,6 +997,7 @@ for mc = 1:numMC
    
     %% End of parfor
     errorall(:,:,:,mc) = error;
+    poserrorall(:,:,mc) = poserror;
     chisqall(:,:,mc) = chisq;
     elpsdtime(:,mc) = elpst;
 
@@ -1029,6 +1031,9 @@ end
 
 % Plot RMSE
 figure; hold on; legend;
+
+set(gca,'YScale','log')
+
 plot(t,rmse(1,:),'r','DisplayName','PGM-DS')
 plot(t,rmse(2,:),'g','DisplayName','PGM-DU')
 plot(t,rmse(3,:),'Color','#0072BD','DisplayName','PGM1')
@@ -1045,8 +1050,19 @@ xlabel('Time (sec)')
 ylabel('RMSE')
 hold off;
 
+% Average terminate position error
+for fil = 1:9
+    lastpos = poserrorall(fil,end,:); % Position error
+    lastpos = reshape(lastpos,[1,numMC]);
+
+    % atermerr(fil) = mean(lastpos);
+    atermerr(fil) = sqrt(sum(lastpos.^2)/numMC);
+end
+
+atermerr = atermerr';
+
 % Chi-squared
-for fil = 1:8
+for fil = 1:9
     for i = 1:numStep
         chinorm(fil,i) = sum(chisqall(fil,i,:))/(n*numMC);
     end

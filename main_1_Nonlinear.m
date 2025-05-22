@@ -22,7 +22,7 @@ comparison_SIR = 1;         % 1: compare with SIR / 0: no comparison
 numParticles = 50; %50
 numEnsembles = numParticles;
 numMixturetemp = 20;
-numMC = 1;
+numMC = 100;
 
 rng(42);
 
@@ -88,8 +88,8 @@ ccovarall = zeros(4,n,n,numMixturetemp,numStep,numMC);
 cweightall = zeros(4,numMixturetemp,numStep,numMC);
 
 %% Monte Carlo simulation
-% parfor mc = 1:numMC 
-for mc = 1:numMC 
+parfor mc = 1:numMC 
+% for mc = 1:numMC 
     disptemp = ['Monete Carlo iteration: ',num2str(mc)];
     disp(disptemp)
 
@@ -767,7 +767,7 @@ for mc = 1:numMC
 
         %% For evaluation
         for i = 2:numStep
-            error(8,:,i) = abs(x-trueState(:,i));
+            error(8,:,i) = abs(estState(:,i)-trueState(:,i));
             chisq(8,i) = error(8,:,i)*(P\error(8,:,i)');    
         end
         
