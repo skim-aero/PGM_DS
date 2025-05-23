@@ -49,11 +49,15 @@ function [estState,particles,weights] = ...
             end
         end
 
+        if all(weights(:,i) == 0)
+            weights(:,i) = 1/numParticles;
+        end
+
         weights(:,i) = weights(:,i)/sum(weights(:,i));  % normalisation
 
         % Resampling
         [particles(:,:,i),weights(:,i)] = resampleEff(weights(:,i),particles(:,:,i),numEffparticles);
 
-        estState(:,i) = mean(particles(:,:,i),2);
+        estState(:,i) = particles(:,:,i)*weights(:,i);
     end
 end
