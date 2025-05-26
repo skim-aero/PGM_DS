@@ -38,3 +38,4 @@ Just run with MATLAB! :)
 * 17th Dec 2024 Release 1.1: Minor modifications
 * 21st May 2025 Release 1.2: Simulation modifications
 * 23rd May 2025 Release 1.3: SIR filter updated
+* 26th May 2025 Release 1.4: Simulation modifications

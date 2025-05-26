@@ -96,8 +96,6 @@ divergecnt = zeros(1,numMC);
 
 % Cluster log
 cmeanall = zeros(4,n,numMixturetemp,numStep,numMC);
-ccovarall = zeros(4,n,n,numMixturetemp,numStep,numMC);
-cweightall = zeros(4,numMixturetemp,numStep,numMC);
 
 %% Monte Carlo simulation
 parfevalOnAll(@warning,0,'off','all'); % Temporary error off
@@ -130,8 +128,6 @@ parfor mc = 1:numMC
     divcnt = zeros(1,1);
 
     cmeanmc = zeros(4,n,numMixturetemp,numStep);
-    ccovarmc = zeros(4,n,n,numMixturetemp,numStep);
-    cweightmc = zeros(4,numMixturetemp,numStep);
 
     %% For plot
     if figure_view
@@ -191,8 +187,6 @@ parfor mc = 1:numMC
     
         for k = length(cweight)
             cmeanmc(1,:,k,1) = cmean(:,k);
-            ccovarmc(1,:,:,k,1) = ccovar(:,:,k);
-            cweightmc(1,k,1) = cweight(k,1);
         end
         
         particle_pos = funpos(particles(:,:,1));
@@ -254,8 +248,6 @@ parfor mc = 1:numMC
     
             for k = length(cweight)
                 cmeanmc(1,:,k,i) = cmean(:,k);
-                ccovarmc(1,:,:,k,i) = ccovar(:,:,k);
-                cweightmc(1,k,i) = cweight(k,1);
             end
         
             particle_pos = funpos(particles(:,:,i));
@@ -352,8 +344,6 @@ parfor mc = 1:numMC
     
         for k = length(cweight)
             cmeanmc(2,:,k,1) = cmean(:,k);
-            ccovarmc(2,:,:,k,1) = ccovar(:,:,k);
-            cweightmc(2,k,1) = cweight(k,1);
         end
         
         particle_pos = funpos(particles(:,:,1));
@@ -411,8 +401,6 @@ parfor mc = 1:numMC
     
             for k = length(cweight)
                 cmeanmc(2,:,k,i) = cmean(:,k);
-                ccovarmc(2,:,:,k,i) = ccovar(:,:,k);
-                cweightmc(2,k,i) = cweight(k,1);
             end  
     
             particle_pos = funpos(particles(:,:,i));
@@ -495,8 +483,6 @@ parfor mc = 1:numMC
     
         for k = length(cweight)
             cmeanmc(3,:,k,1) = cmean(:,k);
-            ccovarmc(3,:,:,k,1) = ccovar(:,:,k);
-            cweightmc(3,k,1) = cweight(k,1);
         end
         
         particle_pos = funpos(particles(:,:,1));
@@ -557,8 +543,6 @@ parfor mc = 1:numMC
     
             for k = length(cweight)
                 cmeanmc(3,:,k,i) = cmean(:,k);
-                ccovarmc(3,:,:,k,i) = ccovar(:,:,k);
-                cweightmc(3,k,i) = cweight(k,1);
             end
         
             particle_pos = funpos(particles(:,:,i));
@@ -652,8 +636,6 @@ parfor mc = 1:numMC
     
         for k = length(cweight)
             cmeanmc(4,:,k,1) = cmean(:,k);
-            ccovarmc(4,:,:,k,1) = ccovar(:,:,k);
-            cweightmc(4,k,1) = cweight(k,1);
         end
         
         particle_pos = funpos(particles(:,:,1));
@@ -711,8 +693,6 @@ parfor mc = 1:numMC
     
             for k = length(cweight)
                 cmeanmc(4,:,k,i) = cmean(:,k);
-                ccovarmc(4,:,:,k,i) = ccovar(:,:,k);
-                cweightmc(4,k,i) = cweight(k,1);
             end  
     
             particle_pos = funpos(particles(:,:,i));
@@ -1183,8 +1163,6 @@ parfor mc = 1:numMC
     divergecnt(:,mc) = divcnt;
 
     cmeanall(:,:,:,:,mc) = cmeanmc;
-    ccovarall(:,:,:,:,:,mc) = ccovarmc;
-    cweightall(:,:,:,mc) = cweightmc;
 end
 
 %% Evaluations

@@ -23,7 +23,7 @@ numParticles = 7000;
 numEnsembles = numParticles;
 numPartiAKKF = 1000;
 numParticlSIR = numParticles;
-numMixturetemp = 1000;
+numMixturetemp = 50;
 numMC = 100;
 
 rng(42);
@@ -80,11 +80,9 @@ elpsdtime = zeros(9,numMC);
 
 % Cluster log
 cmeanall = zeros(4,n,numMixturetemp,numStep,numMC);
-ccovarall = zeros(4,n,n,numMixturetemp,numStep,numMC);
-cweightall = zeros(4,numMixturetemp,numStep,numMC);
 
 %% Monte Carlo simulation
-parpool(4) % Limit the workers to half of the CPU due to memory...
+% parpool(4) % Limit the workers to half of the CPU due to memory...
 parfevalOnAll(@warning,0,'off','all'); % Temporary error off
 parfor mc = 1:numMC
 % for mc = 1:numMC 
@@ -104,8 +102,6 @@ parfor mc = 1:numMC
     elpst = zeros(9,1);
 
     cmeanmc = zeros(4,n,numMixturetemp,numStep);
-    ccovarmc = zeros(4,n,n,numMixturetemp,numStep);
-    cweightmc = zeros(4,numMixturetemp,numStep);
 
     %% For plot
     if figure_view
@@ -130,7 +126,7 @@ parfor mc = 1:numMC
         %% Filter parameters
         numMixture_max = n+1;   % number of Gaussian mixtures
         minpts = n+1;           % minimum number of neighbors for a core point
-        epsilon = 3;            % distance to determine if a point is a core point 50
+        epsilon = 5;            % distance to determine if a point is a core point 50
         
         %% Initialisation
         particles = zeros(n,numParticles,numStep);
@@ -165,8 +161,6 @@ parfor mc = 1:numMC
     
         for k = length(cweight)
             cmeanmc(1,:,k,1) = cmean(:,k);
-            ccovarmc(1,:,:,k,1) = ccovar(:,:,k);
-            cweightmc(1,k,1) = cweight(k,1);
         end
         
         %% Main loop
@@ -220,8 +214,6 @@ parfor mc = 1:numMC
     
             for k = length(cweight)
                 cmeanmc(1,:,k,i) = cmean(:,k);
-                ccovarmc(1,:,:,k,i) = ccovar(:,:,k);
-                cweightmc(1,k,i) = cweight(k,1);
             end   
         end
         
@@ -240,7 +232,7 @@ parfor mc = 1:numMC
         %% Filter parameters
         numMixture_max = n+1;   % number of Gaussian mixtures
         minpts = n+1;           % minimum number of neighbors for a core point
-        epsilon = 3;            % distance to determine if a point is a core point 50
+        epsilon = 5;            % distance to determine if a point is a core point 50
         
         %% Initialisation
         particles = zeros(n,numParticles,numStep);
@@ -286,8 +278,6 @@ parfor mc = 1:numMC
     
         for k = length(cweight)
             cmeanmc(2,:,k,1) = cmean(:,k);
-            ccovarmc(2,:,:,k,1) = ccovar(:,:,k);
-            cweightmc(2,k,1) = cweight(k,1);
         end
     
         %% Main loop
@@ -339,8 +329,6 @@ parfor mc = 1:numMC
     
             for k = length(cweight)
                 cmeanmc(2,:,k,i) = cmean(:,k);
-                ccovarmc(2,:,:,k,i) = ccovar(:,:,k);
-                cweightmc(2,k,i) = cweight(k,1);
             end  
         end
         
@@ -392,8 +380,6 @@ parfor mc = 1:numMC
     
         for k = length(cweight)
             cmeanmc(3,:,k,1) = cmean(:,k);
-            ccovarmc(3,:,:,k,1) = ccovar(:,:,k);
-            cweightmc(3,k,1) = cweight(k,1);
         end
     
         %% Main loop
@@ -447,8 +433,6 @@ parfor mc = 1:numMC
     
             for k = length(cweight)
                 cmeanmc(3,:,k,i) = cmean(:,k);
-                ccovarmc(3,:,:,k,i) = ccovar(:,:,k);
-                cweightmc(3,k,i) = cweight(k,1);
             end
         end
         
@@ -511,8 +495,6 @@ parfor mc = 1:numMC
     
         for k = length(cweight)
             cmeanmc(4,:,k,1) = cmean(:,k);
-            ccovarmc(4,:,:,k,1) = ccovar(:,:,k);
-            cweightmc(4,k,1) = cweight(k,1);
         end
     
         %% Main loop
@@ -564,8 +546,6 @@ parfor mc = 1:numMC
     
             for k = length(cweight)
                 cmeanmc(4,:,k,i) = cmean(:,k);
-                ccovarmc(4,:,:,k,i) = ccovar(:,:,k);
-                cweightmc(4,k,i) = cweight(k,1);
             end  
         end
         
@@ -1002,8 +982,6 @@ parfor mc = 1:numMC
     elpsdtime(:,mc) = elpst;
 
     cmeanall(:,:,:,:,mc) = cmeanmc;
-    ccovarall(:,:,:,:,:,mc) = ccovarmc;
-    cweightall(:,:,:,mc) = cweightmc;
 end
 
 %% Evaluations
@@ -1038,7 +1016,7 @@ plot(t,rmse(1,:),'r','DisplayName','PGM-DS')
 plot(t,rmse(2,:),'g','DisplayName','PGM-DU')
 plot(t,rmse(3,:),'Color','#0072BD','DisplayName','PGM1')
 plot(t,rmse(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
-plot(t,rmse(5,:),'m','DisplayName','AKKF')
+% plot(t,rmse(5,:),'m','DisplayName','AKKF')
 % plot(t,rmse(6,:),'c','DisplayName','EnKF')
 plot(t,rmse(7,:),'Color','#7E2F8E','DisplayName','EKF')
 plot(t,rmse(8,:),'Color','#4DBEEE','DisplayName','UKF')
@@ -1078,7 +1056,7 @@ plot(t,chinorm(1,:),'r','DisplayName','PGM-DS')
 plot(t,chinorm(2,:),'g','DisplayName','PGM-DU')
 plot(t,chinorm(3,:),'Color','#0072BD','DisplayName','PGM1')
 plot(t,chinorm(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
-plot(t,chinorm(5,:),'m','DisplayName','AKKF')
+% plot(t,chinorm(5,:),'m','DisplayName','AKKF')
 % plot(t,chinorm(6,:),'c','DisplayName','EnKF')
 plot(t,chinorm(7,:),'Color','#7E2F8E','DisplayName','EKF')
 plot(t,chinorm(8,:),'Color','#4DBEEE','DisplayName','UKF')
@@ -1118,7 +1096,7 @@ plot(t,chifrac(1,:),'r','DisplayName','PGM-DS')
 plot(t,chifrac(2,:),'g','DisplayName','PGM-DU')
 plot(t,chifrac(3,:),'Color','#0072BD','DisplayName','PGM1')
 plot(t,chifrac(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
-plot(t,chifrac(5,:),'m','DisplayName','AKKF')
+% plot(t,chifrac(5,:),'m','DisplayName','AKKF')
 % plot(t,chifrac(6,:),'c','DisplayName','EnKF')
 plot(t,chifrac(7,:),'Color','#7E2F8E','DisplayName','EKF')
 plot(t,chifrac(8,:),'Color','#4DBEEE','DisplayName','UKF')
