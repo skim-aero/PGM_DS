@@ -23,7 +23,7 @@ numParticles = 7000;
 numEnsembles = numParticles;
 numPartiAKKF = 1000;
 numParticlSIR = numParticles;
-numMixturetemp = 50;
+numMixturetemp = 100;
 numMC = 100;
 
 rng(42);
@@ -1025,7 +1025,7 @@ plot(t,rmse(9,:),'Color','#77AC30','DisplayName','SIR')
 xlim([0 tlim])
 % ylim([-25 25])
 xlabel('Time (sec)')
-ylabel('RMSE')
+ylabel('Position RMSE')
 hold off;
 
 % Average terminate position error
