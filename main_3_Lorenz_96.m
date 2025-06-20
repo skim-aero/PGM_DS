@@ -1,5 +1,5 @@
-%% Particle Gaussian Mixture Filter with DBSCAN (and with UT)
-% Sukkeun Kim (Sukkeun.Kim@cranfield.ac.uk)
+%% DBSCAN-based Particle Gaussian Mixture Filters
+% Sukkeun Kim (s.kim.aero@gmail.com)
 
 clc; clear; close all;
 addpath(genpath('functions'));
@@ -8,15 +8,13 @@ warning('off','all')
 warning
 
 %% Simulation settings
-figure_view = 1;
+figure_view = 1;            % 1: only when run with for (not parfor)
 comparison_PGM_DS = 1;      % 1: compare with PGM_DS  / 0: no comparison
 comparison_PGM_DU = 1;      % 1: compare with PGM_DU  / 0: no comparison
 comparison_PGM1 = 1;        % 1: compare with PGM1  / 0: no comparison
 comparison_PGM1_UT = 1;     % 1: compare with PGM1_UT  / 0: no comparison
 comparison_AKKF = 1;        % 1: compare with AKKF / 0: no comparison
 comparison_EnKF = 1;        % 1: compare with EnKF / 0: no comparison
-comparison_EKF = 0;         % 1: compare with EKF / 0: no comparison
-comparison_UKF = 0;         % 1: compare with UKF / 0: no comparison
 comparison_SIR = 1;         % 1: compare with SIR / 0: no comparison
 
 numParticles = 2000;
@@ -123,21 +121,47 @@ parfor mc = 1:numMC
 
     %% For plot
     if figure_view
-        fig2 = figure;
-        hold on; legend;
-        plot(t,trueState(1,:),'--ok','DisplayName','True')
-        xlabel('Time (sec)')
-        ylabel('Estimated state (first)')
+        labels = {'PGM-DS','PGM-DU','PGM1','PGM1-UT','AKKF','EnKF','SIR'};
+        markers = {'s','^','d','v','p','h','+'};
+        colors  = {'r','g','#0072BD','#EDB120','m','c','#77AC30'};
+        remap_columnwise = [1 5 2 6 3 7 4];
+        marker_indices = 1:4:length(t);
 
-        fig3 = figure; 
-        hold on; legend;
-        xlabel('Time (sec)')  
-        ylabel('|Estimation Error (first)|')
+        fig2 = figure; hold on; grid on;
+        h2 = gobjects(1,7);
+        h_true = plot(t,trueState(1,:),'--ok',...
+                'DisplayName','True',...
+                'LineWidth',1,...
+                'MarkerSize',6,...
+                'MarkerIndices',marker_indices);
+        xlim([0 tf]);
+        xlabel('Time (sec)');
+        ylabel('Estimated state (first)');
+    
+        fig3 = figure; hold on; grid on;
+        h3 = gobjects(1,7);
+        xlim([0 tf]);
+        xlabel('Time (sec)');
+        ylabel('|Estimation error (first)|');
+
+        % Pre-fill dummy handles for other algorithms
+        for k = 1:7
+            h2(k) = plot(NaN,NaN,'Marker',markers{k},...
+                'Color',colors{k},'LineStyle','-',...
+                'MarkerSize',6,'LineWidth',1,...
+                'DisplayName',labels{k},'Visible','off');
+
+            h3(k) = plot(NaN,NaN,'Marker',markers{k},...
+                'Color',colors{k},'LineStyle','-',...
+                'MarkerSize',6,'LineWidth',1,...
+                'DisplayName',labels{k},'Visible','off');
+        end
     end
    
     %% PGM-DS
     if comparison_PGM_DS
         %% Filter parameters
+        fil_idx = 1;
         numMixture_max = n+1;   % number of Gaussian mixtures
         minpts = n+1;           % minimum number of neighbors for a core point
         epsilon = 100;          % distance to determine if a point is a core point 100
@@ -161,18 +185,18 @@ parfor mc = 1:numMC
         estState(:,1) = mean(particles(:,:,1),2);
         temp_particle_var(:,:,1) = P0;
     
-        error(1,:,1) = abs(estState(:,1)-trueState(:,1));
-        chisq(1,1) = error(1,:,1)*(temp_particle_var(:,:,1)\error(1,:,1)');
+        error(fil_idx,:,1) = abs(estState(:,1)-trueState(:,1));
+        chisq(fil_idx,1) = error(fil_idx,:,1)*(temp_particle_var(:,:,1)\error(fil_idx,:,1)');
      
         % Clustering
         [~,particle_mean,particle_var,~,...
-                cmean,ccovar,cweight,~,~] = ...
+                cmean,~,cweight,~,~] = ...
                    PGM_DS_clustering(1,n,numParticles,...
                                   particles,particle_mean,particle_var,...
                                   epsilon,minpts,numMixture_max,1,1);
     
         for k = length(cweight)
-            cmeanmc(1,:,k,1) = cmean(:,k);
+            cmeanmc(fil_idx,:,k,1) = cmean(:,k);
         end
         
         %% Main loop
@@ -205,7 +229,7 @@ parfor mc = 1:numMC
     
             if rem(i,20) == 0
                 [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
+                 cmean,~,cweight] = ...
                                PGM_DS_update(i,n,nm,numStep,numParticles,...
                                            numMixture,numMixture_max,...
                                            1,cweight,idx,meas,likelih,R,...
@@ -215,7 +239,7 @@ parfor mc = 1:numMC
                                            temp_particle_var,0,0,0,0,0,0);
             else
                 [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
+                 cmean,~,cweight] = ...
                                PGM_DS_update(i,n,nm,numStep,numParticles,...
                                            numMixture,numMixture_max,...
                                            0,cweight,idx,meas,likelih,R,...
@@ -226,30 +250,40 @@ parfor mc = 1:numMC
             end
 
             %% For evaluation
-            error(1,:,i) = abs(estState(:,i)-trueState(:,i));
-            chisq(1,i) = error(1,:,i)*(temp_particle_var(:,:,i)\error(1,:,i)');
+            error(fil_idx,:,i) = abs(estState(:,i)-trueState(:,i));
+            chisq(fil_idx,i) = error(fil_idx,:,i)*(temp_particle_var(:,:,i)\error(fil_idx,:,i)');
     
             for k = length(cweight)
-                cmeanmc(1,:,k,i) = cmean(:,k);
+                cmeanmc(fil_idx,:,k,i) = cmean(:,k);
             end   
         end
         
-        elpst(1) = toc(tStart1);
+        elpst(fil_idx) = toc(tStart1);
     
-        temperror = zeros(1,length(error(1,1,:)));
-        temperror(:) = error(1,1,:);
+        temperror = zeros(1,length(error(fil_idx,1,:)));
+        temperror(:) = error(fil_idx,1,:);
         
         if figure_view
-            figure(fig2); 
-            plot(t,estState(1,:),'r','DisplayName','PGM-DS')
-            figure(fig3)
-            plot(t,temperror,'r','DisplayName','PGM-DS')
+            figure(fig2);
+            h2(fil_idx) = plot(t,estState(1,:),...
+                'Color',colors{fil_idx},'Marker',markers{fil_idx},...
+                'MarkerIndices',marker_indices,...
+                'LineWidth',1,'MarkerSize',6,...
+                'DisplayName',labels{fil_idx});
+        
+            figure(fig3);
+            h3(fil_idx) = plot(t,temperror,...
+                'Color',colors{fil_idx},'Marker',markers{fil_idx},...
+                'MarkerIndices',marker_indices,...
+                'LineWidth',1,'MarkerSize',6,...
+                'DisplayName',labels{fil_idx});
         end
     end
 
     %% PGM-DU
     if comparison_PGM_DU
         %% Filter parameters
+        fil_idx = 2;
         numMixture_max = n+1;   % number of Gaussian mixtures
         minpts = n+1;           % minimum number of neighbors for a core point
         epsilon = 100;          % distance to determine if a point is a core point 100
@@ -284,18 +318,18 @@ parfor mc = 1:numMC
         estState(:,1) = mean(particles(:,:,1),2);
         temp_particle_var(:,:,1) = P0;
     
-        error(2,:,1) = abs(estState(:,1)-trueState(:,1));
-        chisq(2,1) = error(2,:,1)*(temp_particle_var(:,:,1)\error(2,:,1)');
+        error(fil_idx,:,1) = abs(estState(:,1)-trueState(:,1));
+        chisq(fil_idx,1) = error(fil_idx,:,1)*(temp_particle_var(:,:,1)\error(fil_idx,:,1)');
     
         % Clustering
         [~,particle_mean,particle_var,~,...
-                cmean,ccovar,cweight,~,~] = ...
+                cmean,~,cweight,~,~] = ...
                    PGM_DS_clustering(1,n,numParticles,...
                                   particles,particle_mean,particle_var,...
                                   epsilon,minpts,numMixture_max,1,1);
     
         for k = length(cweight)
-            cmeanmc(2,:,k,1) = cmean(:,k);
+            cmeanmc(fil_idx,:,k,1) = cmean(:,k);
         end
     
         %% Main loop
@@ -324,7 +358,7 @@ parfor mc = 1:numMC
             %% Update
             if rem(i,20) == 0
                 [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
+                 cmean,~,cweight] = ...
                                PGM_DS_update(i,n,nm,numStep,numParticles,...
                                            numMixture,numMixture_max,...
                                            1,cweight,idx,meas,likelih,R,...
@@ -335,7 +369,7 @@ parfor mc = 1:numMC
                                            1,numSigma,lambda,wc,wm,funmeas);
             else
                 [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
+                 cmean,~,cweight] = ...
                                PGM_DS_update(i,n,nm,numStep,numParticles,...
                                            numMixture,numMixture_max,...
                                            0,cweight,idx,meas,likelih,R,...
@@ -346,30 +380,40 @@ parfor mc = 1:numMC
                                            1,numSigma,lambda,wc,wm,funmeas);
             end
             %% For evaluation
-            error(2,:,i) = abs(estState(:,i)-trueState(:,i));
-            chisq(2,i) = error(2,:,i)*(temp_particle_var(:,:,i)\error(2,:,i)');
+            error(fil_idx,:,i) = abs(estState(:,i)-trueState(:,i));
+            chisq(fil_idx,i) = error(fil_idx,:,i)*(temp_particle_var(:,:,i)\error(fil_idx,:,i)');
     
             for k = length(cweight)
-                cmeanmc(2,:,k,i) = cmean(:,k);
+                cmeanmc(fil_idx,:,k,i) = cmean(:,k);
             end  
         end
     
-        elpst(2) = toc(tStart2);
+        elpst(fil_idx) = toc(tStart2);
     
-        temperror = zeros(1,length(error(2,1,:)));
-        temperror(:) = error(2,1,:);
+        temperror = zeros(1,length(error(fil_idx,1,:)));
+        temperror(:) = error(fil_idx,1,:);
         
         if figure_view
-            figure(fig2); 
-            plot(t,estState(1,:),'g','DisplayName','PGM-DU')
-            figure(fig3)
-            plot(t,temperror,'g','DisplayName','PGM-DU')
+            figure(fig2);
+            h2(fil_idx) = plot(t,estState(1,:),...
+                'Color',colors{fil_idx},'Marker',markers{fil_idx},...
+                'MarkerIndices',marker_indices,...
+                'LineWidth',1,'MarkerSize',6,...
+                'DisplayName',labels{fil_idx});
+        
+            figure(fig3);
+            h3(fil_idx) = plot(t,temperror,...
+                'Color',colors{fil_idx},'Marker',markers{fil_idx},...
+                'MarkerIndices',marker_indices,...
+                'LineWidth',1,'MarkerSize',6,...
+                'DisplayName',labels{fil_idx});
         end
     end
 
     %% PGM1
     if comparison_PGM1
         %% Filter parameters
+        fil_idx = 3;
         numMixture_max = 2;     % number of Gaussian mixtures
         
         %% Initialisation
@@ -391,18 +435,18 @@ parfor mc = 1:numMC
         estState(:,1) = mean(particles(:,:,1),2);
         temp_particle_var(:,:,1) = P0;
     
-        error(3,:,1) = abs(estState(:,1)-trueState(:,1));
-        chisq(3,1) = error(3,:,1)*(temp_particle_var(:,:,1)\error(3,:,1)');
+        error(fil_idx,:,1) = abs(estState(:,1)-trueState(:,1));
+        chisq(fil_idx,1) = error(fil_idx,:,1)*(temp_particle_var(:,:,1)\error(fil_idx,:,1)');
      
         % Clustering
         [~,particle_mean,particle_var,~,...
-                    cmean,ccovar,cweight,~,~] = ...
+                    cmean,~,cweight,~,~] = ...
                        PGM_DS_clustering(1,n,numParticles,...
                                       particles,particle_mean,particle_var,...
                                       0,0,numMixture_max,0,1);
     
         for k = length(cweight)
-            cmeanmc(3,:,k,1) = cmean(:,k);
+            cmeanmc(fil_idx,:,k,1) = cmean(:,k);
         end
     
         %% Main loop
@@ -435,7 +479,7 @@ parfor mc = 1:numMC
     
             if rem(i,20) == 0
                 [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
+                 cmean,~,cweight] = ...
                                PGM_DS_update(i,n,nm,numStep,numParticles,...
                                            numMixture,numMixture_max,...
                                            1,cweight,idx,meas,likelih,R,...
@@ -445,7 +489,7 @@ parfor mc = 1:numMC
                                            temp_particle_var,0,0,0,0,0,0);
             else
                 [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
+                 cmean,~,cweight] = ...
                                PGM_DS_update(i,n,nm,numStep,numParticles,...
                                            numMixture,numMixture_max,...
                                            0,cweight,idx,meas,likelih,R,...
@@ -456,30 +500,40 @@ parfor mc = 1:numMC
             end
     
             %% For evaluation
-            error(3,:,i) = abs(estState(:,i)-trueState(:,i));
-            chisq(3,i) = error(3,:,i)*(temp_particle_var(:,:,i)\error(3,:,i)');
+            error(fil_idx,:,i) = abs(estState(:,i)-trueState(:,i));
+            chisq(fil_idx,i) = error(fil_idx,:,i)*(temp_particle_var(:,:,i)\error(fil_idx,:,i)');
     
             for k = length(cweight)
-                cmeanmc(3,:,k,i) = cmean(:,k);
+                cmeanmc(fil_idx,:,k,i) = cmean(:,k);
             end   
         end
         
-        elpst(3) = toc(tStart3);
+        elpst(fil_idx) = toc(tStart3);
     
-        temperror = zeros(1,length(error(3,1,:)));
-        temperror(:) = error(3,1,:);
+        temperror = zeros(1,length(error(fil_idx,1,:)));
+        temperror(:) = error(fil_idx,1,:);
         
         if figure_view
-            figure(fig2); 
-            plot(t,estState(1,:),'Color','#0072BD','DisplayName','PGM1')
+            figure(fig2);
+            h2(fil_idx) = plot(t,estState(1,:),...
+                'Color',colors{fil_idx},'Marker',markers{fil_idx},...
+                'MarkerIndices',marker_indices,...
+                'LineWidth',1,'MarkerSize',6,...
+                'DisplayName',labels{fil_idx});
+        
             figure(fig3);
-            plot(t,temperror,'Color','#0072BD','DisplayName','PGM1')
+            h3(fil_idx) = plot(t,temperror,...
+                'Color',colors{fil_idx},'Marker',markers{fil_idx},...
+                'MarkerIndices',marker_indices,...
+                'LineWidth',1,'MarkerSize',6,...
+                'DisplayName',labels{fil_idx});
         end
     end
 
     %% PGM1_UT
     if comparison_PGM1_UT
         %% Filter parameters
+        fil_idx = 4;
         numMixture_max = 2;     % number of Gaussian mixtures
         
         %% Initialisation
@@ -512,18 +566,18 @@ parfor mc = 1:numMC
         estState(:,1) = mean(particles(:,:,1),2);
         temp_particle_var(:,:,1) = P0;
     
-        error(4,:,1) = abs(estState(:,1)-trueState(:,1));
-        chisq(4,1) = error(4,:,1)*(temp_particle_var(:,:,1)\error(4,:,1)');
+        error(fil_idx,:,1) = abs(estState(:,1)-trueState(:,1));
+        chisq(fil_idx,1) = error(fil_idx,:,1)*(temp_particle_var(:,:,1)\error(fil_idx,:,1)');
     
         % Clustering
         [~,particle_mean,particle_var,~,...
-                    cmean,ccovar,cweight,~,~] = ...
+                    cmean,~,cweight,~,~] = ...
                        PGM_DS_clustering(1,n,numParticles,...
                                       particles,particle_mean,particle_var,...
                                       0,0,numMixture_max,0,1);
     
         for k = length(cweight)
-            cmeanmc(4,:,k,1) = cmean(:,k);
+            cmeanmc(fil_idx,:,k,1) = cmean(:,k);
         end
     
         %% Main loop
@@ -552,7 +606,7 @@ parfor mc = 1:numMC
             %% Update
             if rem(i,20) == 0
                 [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
+                 cmean,~,cweight] = ...
                                PGM_DS_update(i,n,nm,numStep,numParticles,...
                                            numMixture,numMixture_max,...
                                            1,cweight,idx,meas,likelih,R,...
@@ -563,7 +617,7 @@ parfor mc = 1:numMC
                                            1,numSigma,lambda,wc,wm,funmeas);
             else
                 [particles,estState,temp_particle_var,...
-                 cmean,ccovar,cweight] = ...
+                 cmean,~,cweight] = ...
                                PGM_DS_update(i,n,nm,numStep,numParticles,...
                                            numMixture,numMixture_max,...
                                            0,cweight,idx,meas,likelih,R,...
@@ -574,30 +628,40 @@ parfor mc = 1:numMC
                                            1,numSigma,lambda,wc,wm,funmeas);
             end
             %% For evaluation
-            error(4,:,i) = abs(estState(:,i)-trueState(:,i));
-            chisq(4,i) = error(4,:,i)*(temp_particle_var(:,:,i)\error(4,:,i)');
+            error(fil_idx,:,i) = abs(estState(:,i)-trueState(:,i));
+            chisq(fil_idx,i) = error(fil_idx,:,i)*(temp_particle_var(:,:,i)\error(fil_idx,:,i)');
     
             for k = length(cweight)
-                cmeanmc(4,:,k,i) = cmean(:,k);
+                cmeanmc(fil_idx,:,k,i) = cmean(:,k);
             end  
         end
     
-        elpst(4) = toc(tStart4);
+        elpst(fil_idx) = toc(tStart4);
     
-        temperror = zeros(1,length(error(4,1,:)));
-        temperror(:) = error(4,1,:);
+        temperror = zeros(1,length(error(fil_idx,1,:)));
+        temperror(:) = error(fil_idx,1,:);
         
         if figure_view
-            figure(fig2); 
-            plot(t,estState(1,:),'Color','#EDB120','DisplayName','PGM1-UT')
-            figure(fig3); 
-            plot(t,temperror,'Color','#EDB120','DisplayName','PGM1-UT')
+            figure(fig2);
+            h2(fil_idx) = plot(t,estState(1,:),...
+                'Color',colors{fil_idx},'Marker',markers{fil_idx},...
+                'MarkerIndices',marker_indices,...
+                'LineWidth',1,'MarkerSize',6,...
+                'DisplayName',labels{fil_idx});
+        
+            figure(fig3);
+            h3(fil_idx) = plot(t,temperror,...
+                'Color',colors{fil_idx},'Marker',markers{fil_idx},...
+                'MarkerIndices',marker_indices,...
+                'LineWidth',1,'MarkerSize',6,...
+                'DisplayName',labels{fil_idx});
         end
     end
 
     %% AKKF
     if comparison_AKKF
         %% Filter parameters
+        fil_idx = 5;
         AKKF.kernel = 1;            % "Quadratic" "Quartic" "Gaussian"
         AKKF.N_P = numParticles;
     
@@ -636,8 +700,8 @@ parfor mc = 1:numMC
         estState(:,1) = mean(AKKF.X_P(:,:,1),2);
         temp_particle_var(:,:,1) = P0;
     
-        error(5,:,1) = abs(estState(:,1)-trueState(:,1));
-        chisq(5,1) = error(5,:,1)*(temp_particle_var(:,:,1)\error(5,:,1)');
+        error(fil_idx,:,1) = abs(estState(:,1)-trueState(:,1));
+        chisq(fil_idx,1) = error(fil_idx,:,1)*(temp_particle_var(:,:,1)\error(fil_idx,:,1)');
     
         %% Main loop
         tStart5 = tic; 
@@ -685,25 +749,39 @@ parfor mc = 1:numMC
                 end
             end
             
-            error(5,:,i) = abs(estState(:,i)-trueState(:,i));
-            chisq(5,i) = error(5,:,i)*(temp_particle_var(:,:,i)\error(5,:,i)');
+            error(fil_idx,:,i) = abs(estState(:,i)-trueState(:,i));
+            chisq(fil_idx,i) = error(fil_idx,:,i)*(temp_particle_var(:,:,i)\error(fil_idx,:,i)');
         end
         
-        elpst(5) = toc(tStart5);
+        elpst(fil_idx) = toc(tStart5);
     
-        temperror = zeros(1,length(error(5,1,:)));
-        temperror(:) = error(5,1,:);
+        temperror = zeros(1,length(error(fil_idx,1,:)));
+        temperror(:) = error(fil_idx,1,:);
         
         if figure_view
-            figure(fig2); 
-            plot(t,estState(1,:),'m','DisplayName','AKKF')
+            fil_idx = 5;
+
+            figure(fig2);
+            h2(fil_idx) = plot(t,estState(1,:),...
+                'Color',colors{fil_idx},'Marker',markers{fil_idx},...
+                'MarkerIndices',marker_indices,...
+                'LineWidth',1,'MarkerSize',6,...
+                'DisplayName',labels{fil_idx});
+        
             figure(fig3);
-            plot(t,temperror,'m','DisplayName','AKKF')
+            h3(fil_idx) = plot(t,temperror,...
+                'Color',colors{fil_idx},'Marker',markers{fil_idx},...
+                'MarkerIndices',marker_indices,...
+                'LineWidth',1,'MarkerSize',6,...
+                'DisplayName',labels{fil_idx});
         end
     end
 
     %% EnKF
     if comparison_EnKF
+        %% Filter parameters
+        fil_idx = 6;
+
         %% Initialisation
         ensembles = zeros(n,numEnsembles,numStep);
         ensemble_mean = zeros(n,numStep);
@@ -719,8 +797,8 @@ parfor mc = 1:numMC
         estState(:,1) = mean(ensembles(:,:,1),2);
         temp_particle_var(:,:,1) = P0;
     
-        error(6,:,1) = abs(estState(:,1)-trueState(:,1));
-        chisq(6,1) = error(6,:,1)*(temp_particle_var(:,:,1)\error(6,:,1)');
+        error(fil_idx,:,1) = abs(estState(:,1)-trueState(:,1));
+        chisq(fil_idx,1) = error(fil_idx,:,1)*(temp_particle_var(:,:,1)\error(fil_idx,:,1)');
         
         %% Main loop
         tStart6 = tic;
@@ -733,109 +811,36 @@ parfor mc = 1:numMC
         for i = 2:numStep
             temp_particle_var(:,:,i) = ensemble_var(:,:,i);
     
-            error(6,:,i) = abs(estState(:,i)-trueState(:,i));
-            chisq(6,i) = error(6,:,i)*(temp_particle_var(:,:,i)\error(6,:,i)');
+            error(fil_idx,:,i) = abs(estState(:,i)-trueState(:,i));
+            chisq(fil_idx,i) = error(fil_idx,:,i)*(temp_particle_var(:,:,i)\error(fil_idx,:,i)');
         end
     
-        elpst(6) = toc(tStart6);
+        elpst(fil_idx) = toc(tStart6);
     
-        temperror = zeros(1,length(error(6,1,:)));
-        temperror(:) = error(6,1,:);
+        temperror = zeros(1,length(error(fil_idx,1,:)));
+        temperror(:) = error(fil_idx,1,:);
         
         if figure_view
-            figure(fig2); 
-            plot(t,estState(1,:),'c','DisplayName','EnKF')
+            figure(fig2);
+            h2(fil_idx) = plot(t,estState(1,:),...
+                'Color',colors{fil_idx},'Marker',markers{fil_idx},...
+                'MarkerIndices',marker_indices,...
+                'LineWidth',1,'MarkerSize',6,...
+                'DisplayName',labels{fil_idx});
+        
             figure(fig3);
-            plot(t,temperror,'c','DisplayName','EnKF')
-        end
-    end
-    
-    %% EKF
-    if comparison_EKF
-        %% Initialisation
-        estState = zeros(n,numStep);
-        temp_particle_var = zeros(n,n,numStep);
-    
-        %% First time step
-        x = initial;
-        P = P0;
-        
-        estState(:,1) = x;
-        temp_particle_var(:,:,1) = P;
-    
-        error(7,:,1) = abs(estState(:,1)-trueState(:,1));
-        chisq(7,1) = error(7,:,1)*(temp_particle_var(:,:,1)\error(7,:,1)');
-        
-        %% Main loop
-        tStart7 = tic; 
-        
-        [estState,x,P] = EKF(numStep,n,nm,meas,estState,x,P,...
-                             Q,R,[],H,jacobianF,[],G,[],[],20);
-    
-        %% For evaluation
-        for i = 2:numStep
-            error(7,:,i) = x-trueState(:,i);
-            chisq(7,i) = error(7,:,i)*(P\error(7,:,i)');
-        end
-    
-        elpst(7) = toc(tStart7);
-    
-        temperror = zeros(1,length(error(7,1,:)));
-        temperror(:) = error(7,1,:);
-        
-        if figure_view
-            figure(fig2); 
-            plot(t,estState(1,:),'Color','#7E2F8E','DisplayName','EKF')
-            figure(fig3);
-            plot(t,temperror,'Color','#7E2F8E','DisplayName','EKF')
-        end
-    end
-    
-    %% UKF
-    if comparison_UKF
-        %% Initialisation
-        estState = zeros(n,numStep);
-        temp_particle_var = zeros(n,n,numStep);
-        
-        %% First time step
-        x = initial;
-        P = P0;    
-    
-        estState(:,1) = x;
-        temp_particle_var(:,:,1) = P;
-        
-        error(8,:,1) = abs(estState(:,1)-trueState(:,1));
-        chisq(8,1) = error(8,:,1)*(temp_particle_var(:,:,1)\error(8,:,1)');
-        
-        %% Main loop
-        tStart8 = tic; 
-
-        [estState,x,P] = UKF(numStep,n,nm,meas,estState,x,P,...
-                             numSigma,alpha,beta,lambda,...
-                             Q,R,[],[],G,funsys,funmeas,20);
-        
-        %% For evaluation
-        for i = 2:numStep
-            error(8,:,i) = estState(:,i)-trueState(:,i);
-            chisq(8,i) = error(8,:,i)*(P\error(8,:,i)'); 
-        end
-        
-        elpst(8) = toc(tStart8);
-    
-        temperror = zeros(1,length(error(8,1,:)));
-        temperror(:) = error(8,1,:);
-        
-        if figure_view
-            figure(fig2); 
-            plot(t,estState(1,:),'Color','#4DBEEE','DisplayName','UKF')
-            figure(fig3);
-            plot(t,temperror,'Color','#4DBEEE','DisplayName','UKF')
+            h3(fil_idx) = plot(t,temperror,...
+                'Color',colors{fil_idx},'Marker',markers{fil_idx},...
+                'MarkerIndices',marker_indices,...
+                'LineWidth',1,'MarkerSize',6,...
+                'DisplayName',labels{fil_idx});
         end
     end
 
     %% SIR
     if comparison_SIR
         %% Filter parameters
+        fil_idx = 7;
         numEffparticles = 400;
     
         %% Initialisation
@@ -852,8 +857,8 @@ parfor mc = 1:numMC
         estState(:,1) = mean(particles(:,:,1),2);
         temp_particle_var(:,:,1) = P0;
     
-        error(7,:,1) = abs(estState(:,1)-trueState(:,1));
-        chisq(7,1) = error(7,:,1)*(temp_particle_var(:,:,1)\error(7,:,1)');
+        error(fil_idx,:,1) = abs(estState(:,1)-trueState(:,1));
+        chisq(fil_idx,1) = error(fil_idx,:,1)*(temp_particle_var(:,:,1)\error(fil_idx,:,1)');
         
         %% Main loop
         tStart7 = tic; 
@@ -874,20 +879,29 @@ parfor mc = 1:numMC
                     end
                 end
             end
-            error(7,:,i) = abs(estState(:,i)-trueState(:,i));
-            chisq(7,i) = error(7,:,i)*(temp_particle_var(:,:,i)\error(7,:,i)');
+            error(fil_idx,:,i) = abs(estState(:,i)-trueState(:,i));
+            chisq(fil_idx,i) = error(fil_idx,:,i)*(temp_particle_var(:,:,i)\error(fil_idx,:,i)');
         end
         
-        elpst(7) = toc(tStart7);
+        elpst(fil_idx) = toc(tStart7);
     
-        temperror = zeros(1,length(error(7,1,:)));
-        temperror(:) = error(7,1,:);
+        temperror = zeros(1,length(error(fil_idx,1,:)));
+        temperror(:) = error(fil_idx,1,:);
         
         if figure_view
-            figure(fig2); 
-            plot(t,estState(1,:),'Color',"#77AC30",'DisplayName','SIR')
+            figure(fig2);
+            h2(fil_idx) = plot(t,estState(1,:),...
+                'Color',colors{fil_idx},'Marker',markers{fil_idx},...
+                'MarkerIndices',marker_indices,...
+                'LineWidth',1,'MarkerSize',6,...
+                'DisplayName',labels{fil_idx});
+        
             figure(fig3);
-            plot(t,temperror,'Color',"#77AC30",'DisplayName','SIR')
+            h3(fil_idx) = plot(t,temperror,...
+                'Color',colors{fil_idx},'Marker',markers{fil_idx},...
+                'MarkerIndices',marker_indices,...
+                'LineWidth',1,'MarkerSize',6,...
+                'DisplayName',labels{fil_idx});
         end
     end
    
@@ -897,9 +911,46 @@ parfor mc = 1:numMC
     elpsdtime(:,mc) = elpst;
 
     cmeanall(:,:,:,:,mc) = cmeanmc;
+
+    if figure_view
+        labels = {'PGM-DS','AKKF','PGM-DU','EnKF','PGM1','SIR','PGM1-UT'};
+
+        figure(fig2);
+        legend(h2(remap_columnwise),labels,'NumColumns',4,'Location','north');
+        ylim([-10 18])
+        
+        ax_main = gca;
+        ax_true = axes('Position',get(ax_main,'Position'),...
+                       'Color','none',...
+                       'XColor','none','YColor','none');
+        lgd_true = legend(ax_true,h_true,'True','Location','southeast');
+        set(lgd_true,'Box','off');
+    
+        figure(fig3);
+        legend(h3(remap_columnwise),labels,'NumColumns',4,'Location','north');
+        ylim([0 12])
+    end
 end
 
 %% Evaluations
+% For plot
+labels = {'PGM-DS','AKKF','PGM-DU','EnKF','PGM1','SIR','PGM1-UT'};
+markers = {'s','^','d','v','p','h','+'};
+colors  = {'r','g','#0072BD','#EDB120','m','c','#77AC30'};
+remap_columnwise = [1 5 2 6 3 7 4];
+marker_indices = 1:1:length(t);
+
+comparison_flags = [ ...
+    comparison_PGM_DS,...
+    comparison_PGM_DU,...
+    comparison_PGM1,...
+    comparison_PGM1_UT,...
+    comparison_AKKF,...
+    comparison_EnKF,...
+    comparison_SIR];
+
+comparison_flags =  1 - comparison_flags;
+
 % Root means squared error (RMSE)
 for fil = 1:7
     for i = 1:numStep
@@ -917,28 +968,42 @@ end
 
 % Averaged RMSE
 for fil = 1:7
-    armse(fil) = sum(rmse(fil,:))/numStep;
+    armse(fil) = sum(rmse(fil,:))/numStep;  % PGM-UT/PGM/UKF/SIR
 end
 
 % Plot RMSE
-figure; hold on; legend;
-plot(t,rmse(1,:),'r','DisplayName','PGM-DS')
-plot(t,rmse(2,:),'g','DisplayName','PGM-DU')
-plot(t,rmse(3,:),'Color','#0072BD','DisplayName','PGM1')
-plot(t,rmse(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
-plot(t,rmse(5,:),'m','DisplayName','AKKF')
-plot(t,rmse(6,:),'c','DisplayName','EnKF')
-% plot(t,rmse(7,:),'Color','#7E2F8E','DisplayName','EKF')
-% plot(t,rmse(8,:),'Color','#4DBEEE','DisplayName','UKF')
-plot(t,rmse(7,:),'Color','#77AC30','DisplayName','SIR')
+figure; hold on; grid on;
+h = gobjects(1,7);  % Preallocate
+
+for k = 1:7
+    if comparison_flags(k)
+        h(k) = plot(NaN,NaN,...
+            'Color',colors{k},...
+            'Marker',markers{k},...
+            'LineWidth',1,...
+            'MarkerSize',6,...
+            'DisplayName',labels{k},...
+            'Visible','off');
+    else
+        h(k) = plot(t,rmse(k,:),...
+            'Color',colors{k},...
+            'Marker',markers{k},...
+            'LineWidth',1,...
+            'MarkerSize',6,...
+            'DisplayName',labels{k},...
+            'MarkerIndices',marker_indices);
+    end
+end
+
+legend(h(remap_columnwise),labels,'NumColumns',4,'Location','north');
 
 xlim([0 tf])
-% ylim([-25 25])
+ylim([0 52])
 xlabel('Time (sec)')
 ylabel('RMSE')
 hold off;
 
-% Chi-squared
+% Chi-Square
 for fil = 1:7
     for i = 1:numStep
         chinorm(fil,i) = sum(chisqall(fil,i,:))/(n*numMC);
@@ -948,24 +1013,6 @@ end
 for fil = 1:7
     achi(fil) = sum(chinorm(fil,:))/numStep;
 end
-
-% Plot Chisq
-figure; hold on; legend;
-plot(t,chinorm(1,:),'r','DisplayName','PGM-DS')
-plot(t,chinorm(2,:),'g','DisplayName','PGM-DU')
-plot(t,chinorm(3,:),'Color','#0072BD','DisplayName','PGM1')
-plot(t,chinorm(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
-plot(t,chinorm(5,:),'m','DisplayName','AKKF')
-plot(t,chinorm(6,:),'c','DisplayName','EnKF')
-% plot(t,chinorm(7,:),'Color','#7E2F8E','DisplayName','EKF')
-% plot(t,chinorm(8,:),'Color','#4DBEEE','DisplayName','UKF')
-plot(t,chinorm(7,:),'Color','#77AC30','DisplayName','SIR')
-
-xlim([0 tf])
-% ylim([-25 25])
-xlabel('Time (sec)')
-ylabel('State-Error Chi-squared statistic/nx')
-hold off;
 
 % Counting Chi-squared
 for fil = 1:7
@@ -989,22 +1036,41 @@ for fil = 1:7
     chifracavg(fil) = mean(chifrac(fil,:),2);
 end
 
-% Plot Chisq
-figure; hold on; legend;
-plot(t,chifrac(1,:),'r','DisplayName','PGM-DS')
-plot(t,chifrac(2,:),'g','DisplayName','PGM-DU')
-plot(t,chifrac(3,:),'Color','#0072BD','DisplayName','PGM1')
-plot(t,chifrac(4,:),'Color','#EDB120','DisplayName','PGM1-UT')
-plot(t,chifrac(5,:),'m','DisplayName','AKKF')
-plot(t,chifrac(6,:),'c','DisplayName','EnKF')
-% plot(t,chifrac(7,:),'Color','#7E2F8E','DisplayName','EKF')
-% plot(t,chifrac(8,:),'Color','#4DBEEE','DisplayName','UKF')
-plot(t,chifrac(7,:),'Color','#77AC30','DisplayName','SIR')
+% Plot Chisq percentage cases
+figure; hold on; grid on;
+h = gobjects(1,7);  % Preallocate
+
+for k = 1:7
+    if comparison_flags(k)
+        h(k) = plot(NaN,NaN,...
+            'Color',colors{k},...
+            'Marker',markers{k},...
+            'LineWidth',1,...
+            'MarkerSize',6,...
+            'DisplayName',labels{k},...
+            'Visible','off');
+    else
+        h(k) = plot(t,chifrac(k,:),...
+            'Color',colors{k},...
+            'Marker',markers{k},...
+            'LineWidth',1,...
+            'MarkerSize',6,...
+            'DisplayName',labels{k},...
+            'MarkerIndices',marker_indices);
+    end
+end
+
+legend(h(remap_columnwise),labels,'NumColumns',4,'Location','north');
 
 xlim([0 tf])
-% ylim([-25 25])
+ylim([0 1.15])
 xlabel('Time (sec)')
-ylabel('Fraction of Cases')
+ylabel('Cases exceeding 99.99% \chi^2 bound (%)');
+ax = gca;
+
+yticks = get(ax,'YTick');
+yticklabels = arrayfun(@(y) sprintf('%.0f%%',y * 100),yticks,'UniformOutput',false);
+set(ax,'YTickLabel',yticklabels);
 hold off;
 
 elpadtavg = mean(elpsdtime,2);
